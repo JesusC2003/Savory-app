@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:proyecto_savory/UI/home/Homepage.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -8,14 +9,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Material App',
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Material App Bar'),
-        ),
-        body: const Center(
-          child: Text('Hello World'),
-        ),
-      ),
+      home: Homepage()
     );
   }
 }
