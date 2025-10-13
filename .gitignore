@@ -1,0 +1,72 @@
+# ---------------------------
+# 🧩 Archivos generales
+# ---------------------------
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# ---------------------------
+# 🧠 IDEs (Visual Studio Code / Android Studio)
+# ---------------------------
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+
+# ---------------------------
+# 🦋 Flutter y Dart
+# ---------------------------
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# ---------------------------
+# 📱 Archivos de compilación Android/iOS
+# ---------------------------
+/android/app/debug
+/android/app/profile
+/android/app/release
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/.symlinks/
+ios/Pods/
+ios/build/
+macos/Flutter/ephemeral/
+web/.dart_tool/
+
+# ---------------------------
+# 🔒 Firebase (no subir estos nunca)
+# ---------------------------
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+
+# ---------------------------
+# 🤖 IA o claves API
+# ---------------------------
+.env
+.env.*
+*.env
+apikeys.json
+secrets.json
+
+# ---------------------------
+# 🧰 Archivos del sistema
+# ---------------------------
+Thumbs.db
