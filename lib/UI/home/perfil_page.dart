@@ -15,7 +15,7 @@ class PerfilPage extends StatelessWidget {
         ),
         const SizedBox(height: 15),
         const Text(
-          "Jesús Castillo",
+          "SAVORY",
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
@@ -23,7 +23,7 @@ class PerfilPage extends StatelessWidget {
         const ListTile(
           leading: Icon(Icons.email_outlined, color: Color(0xFF47A72F)),
           title: Text("Correo"),
-          subtitle: Text("jesus.castillo@savory.com"),
+          subtitle: Text("admin@savory.com"),
         ),
         const ListTile(
           leading: Icon(Icons.settings_outlined, color: Color(0xFF47A72F)),
