@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Savory',
 
-      initialRoute: '/login', // Pantalla inicial
+      initialRoute: '/home', // Pantalla inicial
       routes: {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
