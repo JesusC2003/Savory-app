@@ -8,13 +8,13 @@ class Homepage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerHighest, // adapta a Material 3
+      backgroundColor: colorScheme.surfaceContainerHighest, 
       appBar: AppBar(
         title: const Text(
           '🍳 Savory',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: colorScheme.primary, // usa colorScheme (Material 3)
+        backgroundColor: colorScheme.primary, 
         foregroundColor: colorScheme.onPrimary,
         elevation: 2,
       ),
@@ -37,7 +37,7 @@ class Homepage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 🟩 Cuadrícula de opciones principales
+       
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
@@ -81,7 +81,7 @@ class Homepage extends StatelessWidget {
     );
   }
 
-  /// 🔹 Widget auxiliar para construir cada tarjeta de acceso rápido
+
   Widget _buildOptionCard(BuildContext context, {
     required IconData icon,
     required String title,
@@ -90,12 +90,12 @@ class Homepage extends StatelessWidget {
   }) {
     return GestureDetector(
       onTap: () {
-        // ⚠️ Por ahora solo muestra un mensaje (luego se reemplazará por Navigator)
+     
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Navegando a $title...')),
         );
 
-        // Navigator.pushNamed(context, route);
+
       },
       child: Card(
         elevation: 3,
@@ -129,7 +129,6 @@ class Homepage extends StatelessWidget {
     );
   }
 
-  // Devuelve una versión más oscura del color dado usando HSL (compatible con Color)
   Color _shadeColor(Color c, double amount) {
     final hsl = HSLColor.fromColor(c);
     final lightness = (hsl.lightness - amount).clamp(0.0, 1.0);
