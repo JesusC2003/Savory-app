@@ -81,7 +81,6 @@ class LoginPage extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: GestureDetector(
                 onTap: () {
-                  // TODO: Implementar recuperación de contraseña (Firebase Auth)
                 },
                 child: Text(
                   '¿Olvidaste tu contraseña?',
