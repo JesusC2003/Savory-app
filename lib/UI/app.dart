@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:proyecto_savory/UI/auth/login_page.dart';
+import 'package:proyecto_savory/UI/auth/register_page.dart';
 import 'package:proyecto_savory/UI/home/Homepage.dart';
 
 class MyApp extends StatelessWidget {
@@ -8,8 +10,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Material App',
-      home: Homepage()
+      title: 'Savory',
+
+      initialRoute: '/login', // Pantalla inicial
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+        '/home': (context) => const Homepage(),
+      },
     );
   }
 }
