@@ -1,14 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:proyecto_savory/UI/home/Homepage.dart';
 
-// 🌿 Pantalla de Inicio de Sesión (LoginPage)
-// Forma parte del módulo de autenticación de Savory.
-// Permite ingresar con correo y contraseña o usar el inicio de sesión con Google.
-//
-// Diseño basado en el color verde #47A72F (verde Savory)
-// Autor: Jesús Castillo
-
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+
+  final String _defaultEmail = 'admin@savory.com';
+  final String _defaultPassword = '123456';
+
+  void _login() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email == _defaultEmail && password == _defaultPassword) {
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const Homepage()),
+      );
+    } else {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Correo o contraseña incorrectos'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +53,7 @@ class LoginPage extends StatelessWidget {
           children: [
             const SizedBox(height: 30),
 
-            // Logo de la aplicación
+
             Center(
               child: Column(
                 children: [
@@ -48,8 +75,9 @@ class LoginPage extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            // Campo de correo electrónico
+
             TextField(
+              controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
                 labelText: 'Correo electrónico',
@@ -62,8 +90,9 @@ class LoginPage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Campo de contraseña
+
             TextField(
+              controller: _passwordController,
               obscureText: true,
               decoration: InputDecoration(
                 labelText: 'Contraseña',
@@ -76,17 +105,14 @@ class LoginPage extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // Enlace "¿Olvidaste tu contraseña?"
             Align(
               alignment: Alignment.centerRight,
               child: GestureDetector(
-                onTap: () {
-                  // TODO: Implementar recuperación de contraseña (Firebase Auth)
-                },
-                child: Text(
+                onTap: () {},
+                child: const Text(
                   '¿Olvidaste tu contraseña?',
                   style: TextStyle(
-                    color: const Color(0xFF47A72F),
+                    color: Color(0xFF47A72F),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -95,7 +121,6 @@ class LoginPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // Botón principal: Iniciar sesión
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF47A72F),
@@ -104,9 +129,7 @@ class LoginPage extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 15),
               ),
-              onPressed: () {
-                // TODO: Conectar con Firebase Auth (signInWithEmailAndPassword)
-              },
+              onPressed: _login, 
               child: const Text(
                 'Iniciar sesión',
                 style: TextStyle(
@@ -118,20 +141,18 @@ class LoginPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // Enlace hacia la pantalla de registro
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text("¿No tienes una cuenta? "),
                 GestureDetector(
                   onTap: () {
-                    // Navegar a la pantalla de registro
                     Navigator.pushReplacementNamed(context, '/register');
                   },
-                  child: Text(
+                  child: const Text(
                     "Crea una",
                     style: TextStyle(
-                      color: const Color(0xFF47A72F),
+                      color: Color(0xFF47A72F),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -141,7 +162,6 @@ class LoginPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // Línea divisoria con texto "O continúa con"
             Row(
               children: const [
                 Expanded(child: Divider(thickness: 1)),
@@ -155,7 +175,6 @@ class LoginPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // Botón de inicio con Google
             OutlinedButton.icon(
               icon: Image.asset(
                 'assets/google.png',
@@ -172,14 +191,10 @@ class LoginPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              onPressed: () {
-      
-              },
+              onPressed: () {},
             ),
 
             const SizedBox(height: 30),
-
-            
           ],
         ),
       ),
