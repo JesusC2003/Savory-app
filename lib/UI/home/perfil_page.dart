@@ -29,11 +29,17 @@ class PerfilPage extends StatelessWidget {
           leading: Icon(Icons.settings_outlined, color: Color(0xFF47A72F)),
           title: Text("Configuración"),
         ),
-        const ListTile(
-          leading: Icon(Icons.logout, color: Colors.redAccent),
-          title: Text("Cerrar sesión"),
+ 
+        ListTile(
+          leading: const Icon(Icons.logout, color: Colors.redAccent),
+          title: const Text("Cerrar sesión"),
+          onTap: () {
+     
+            Navigator.pushReplacementNamed(context, '/login');
+          },
         ),
       ],
     );
   }
 }
+
