@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:proyecto_savory/UI/home/Homepage.dart';
+import 'package:proyecto_savory/UI/auth/register_page.dart'; // (opcional si tienes registro)
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,29 +13,52 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _loading = false;
 
-
-  final String _defaultEmail = 'admin@savory.com';
-  final String _defaultPassword = '123456';
-
-  void _login() {
+  Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email == _defaultEmail && password == _defaultPassword) {
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Por favor ingresa tu correo y contraseña."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
 
+    try {
+      setState(() => _loading = true);
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Navegar a Home si inicia sesión correctamente
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const Homepage()),
       );
-    } else {
+    } on FirebaseAuthException catch (e) {
+      String mensaje = "Error al iniciar sesión";
+      if (e.code == 'user-not-found') {
+        mensaje = "Usuario no encontrado";
+      } else if (e.code == 'wrong-password') {
+        mensaje = "Contraseña incorrecta";
+      } else if (e.code == 'invalid-email') {
+        mensaje = "Correo inválido";
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Correo o contraseña incorrectos'),
+        SnackBar(
+          content: Text(mensaje),
           backgroundColor: Colors.redAccent,
         ),
       );
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
@@ -52,30 +77,21 @@ class _LoginPageState extends State<LoginPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 30),
-
-
             Center(
               child: Column(
                 children: [
-                  Image.asset(
-                    'assets/logo.png',
-                    height: 100,
-                  ),
+                  Image.asset('assets/logo.png', height: 100),
                   const SizedBox(height: 10),
                   const Text(
                     'Bienvenido a Savory',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
 
-
+            // Campo de correo
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
@@ -87,10 +103,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
 
-
+            // Campo de contraseña
             TextField(
               controller: _passwordController,
               obscureText: true,
@@ -108,7 +123,9 @@ class _LoginPageState extends State<LoginPage> {
             Align(
               alignment: Alignment.centerRight,
               child: GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  // Aquí podrías implementar recuperación de contraseña
+                },
                 child: const Text(
                   '¿Olvidaste tu contraseña?',
                   style: TextStyle(
@@ -121,6 +138,7 @@ class _LoginPageState extends State<LoginPage> {
 
             const SizedBox(height: 25),
 
+            // Botón de iniciar sesión
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF47A72F),
@@ -129,25 +147,31 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 15),
               ),
-              onPressed: _login, 
-              child: const Text(
-                'Iniciar sesión',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              onPressed: _loading ? null : _login,
+              child: _loading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text(
+                      'Iniciar sesión',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
 
             const SizedBox(height: 25),
 
+            // Ir al registro
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text("¿No tienes una cuenta? "),
                 GestureDetector(
                   onTap: () {
-                    Navigator.pushReplacementNamed(context, '/register');
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RegisterPage()),
+                    );
                   },
                   child: const Text(
                     "Crea una",
@@ -159,42 +183,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ],
             ),
-
-            const SizedBox(height: 30),
-
-            Row(
-              children: const [
-                Expanded(child: Divider(thickness: 1)),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Text("O continúa con"),
-                ),
-                Expanded(child: Divider(thickness: 1)),
-              ],
-            ),
-
-            const SizedBox(height: 25),
-
-            OutlinedButton.icon(
-              icon: Image.asset(
-                'assets/google.png',
-                height: 22,
-              ),
-              label: const Text(
-                'Iniciar con Google',
-                style: TextStyle(fontSize: 15),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: Colors.grey),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {},
-            ),
-
-            const SizedBox(height: 30),
           ],
         ),
       ),
