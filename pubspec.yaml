@@ -10,11 +10,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^4.2.0
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.3
   flutter_svg: ^2.2.1
   firebase_auth: ^6.1.1
+  firebase_core: ^4.2.0
+  cloud_firestore: 6.0.3
 
 dev_dependencies:
   flutter_test:
@@ -25,8 +26,5 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/onboarding/step1.svg
-    - assets/onboarding/step2.svg
-    - assets/onboarding/step3.svg
-    - assets/google.png
-    - assets/logo.png
+    - assets/onboarding/
+    - assets/
