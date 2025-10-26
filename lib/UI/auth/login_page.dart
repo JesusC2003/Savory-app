@@ -278,14 +278,14 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 50),
+                const SizedBox(height: 15),
                 
                 // Logo y título
                 Center(
                   child: Column(
                     children: [
                       Image.asset('assets/logo.png', height: 120),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       const Text(
                         'Bienvenido a Savory',
                         style: TextStyle(
@@ -543,7 +543,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         )
                       : Image.asset(
-                          'assets/google_logo.png',
+                          'assets/google.png',
                           height: 24,
                           width: 24,
                           errorBuilder: (context, error, stackTrace) {

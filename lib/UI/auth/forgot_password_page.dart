@@ -135,271 +135,281 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF47A72F),
-        title: const Text("Recuperar contraseña"),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 30),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 20),
 
-              // Icono principal
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF47A72F).withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.lock_reset,
-                    size: 80,
-                    color: Color(0xFF47A72F),
+                // Botón de volver atrás (estilo moderno)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF47A72F)),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 30),
+                const SizedBox(height: 10),
 
-              // Título y descripción
-              const Text(
-                '¿Olvidaste tu contraseña?',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF47A72F),
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 15),
-
-              Text(
-                _emailSent
-                    ? 'Te hemos enviado un correo electrónico con las instrucciones para restablecer tu contraseña.'
-                    : 'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade700,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 40),
-
-              // Campo de correo
-              if (!_emailSent) ...[
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  onChanged: _validateEmail,
-                  decoration: InputDecoration(
-                    labelText: 'Correo electrónico',
-                    hintText: 'ejemplo@correo.com',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    errorText: _emailError,
-                    suffixIcon: _emailController.text.isNotEmpty
-                        ? Icon(
-                            _emailError == null
-                                ? Icons.check_circle
-                                : Icons.error,
-                            color: _emailError == null
-                                ? Colors.green
-                                : Colors.red,
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF47A72F),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa tu correo';
-                    }
-                    if (!_isValidEmail(value)) {
-                      return 'Correo electrónico inválido';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 30),
-
-                // Botón enviar
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF47A72F),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    elevation: 2,
-                  ),
-                  onPressed: _loading ? null : _sendPasswordResetEmail,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Enviar correo de recuperación',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ],
-
-              // Si el correo ya fue enviado
-              if (_emailSent) ...[
-                // Icono de éxito
+                // Icono principal
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.all(15),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
+                      // ignore: deprecated_member_use
+                      color: const Color(0xFF47A72F).withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.check_circle,
-                      size: 60,
-                      color: Colors.green,
+                      Icons.lock_reset,
+                      size: 80,
+                      color: Color(0xFF47A72F),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 30),
 
-                // Botón para reenviar
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                      color: Color(0xFF47A72F),
-                      width: 2,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
+                // Título y descripción
+                const Text(
+                  '¿Olvidaste tu contraseña?',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF47A72F),
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _emailSent = false;
-                      _emailController.clear();
-                    });
-                  },
-                  child: const Text(
-                    'Enviar a otro correo',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF47A72F),
-                    ),
-                  ),
+                  textAlign: TextAlign.center,
                 ),
 
                 const SizedBox(height: 15),
 
-                // Botón volver al login
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF47A72F),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    elevation: 2,
+                Text(
+                  _emailSent
+                      ? 'Te hemos enviado un correo electrónico con las instrucciones para restablecer tu contraseña.'
+                      : 'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.grey.shade700,
+                    height: 1.5,
                   ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Volver al inicio de sesión',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ],
 
-              const SizedBox(height: 30),
+                const SizedBox(height: 40),
 
-              // Información adicional
-              if (!_emailSent)
-                Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Colors.blue.shade200,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.blue.shade700,
-                        size: 22,
+                // Campo de correo
+                if (!_emailSent) ...[
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    onChanged: _validateEmail,
+                    decoration: InputDecoration(
+                      labelText: 'Correo electrónico',
+                      hintText: 'ejemplo@correo.com',
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      errorText: _emailError,
+                      suffixIcon: _emailController.text.isNotEmpty
+                          ? Icon(
+                              _emailError == null
+                                  ? Icons.check_circle
+                                  : Icons.error,
+                              color: _emailError == null
+                                  ? Colors.green
+                                  : Colors.red,
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Revisa tu bandeja de entrada y la carpeta de spam. El correo puede tardar unos minutos en llegar.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.blue.shade900,
-                            height: 1.4,
-                          ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF47A72F),
+                          width: 2,
                         ),
                       ),
-                    ],
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor ingresa tu correo';
+                      }
+                      if (!_isValidEmail(value)) {
+                        return 'Correo electrónico inválido';
+                      }
+                      return null;
+                    },
                   ),
-                ),
 
-              const SizedBox(height: 20),
+                  const SizedBox(height: 30),
 
-              // Volver atrás
-              if (!_emailSent)
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Volver al inicio de sesión',
-                    style: TextStyle(
-                      color: Color(0xFF47A72F),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                  // Botón enviar
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF47A72F),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      elevation: 2,
+                    ),
+                    onPressed: _loading ? null : _sendPasswordResetEmail,
+                    child: _loading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Enviar correo de recuperación',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ],
+
+                // Si el correo ya fue enviado
+                if (_emailSent) ...[
+                  // Icono de éxito
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        // ignore: deprecated_member_use
+                        color: Colors.green.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        size: 60,
+                        color: Colors.green,
+                      ),
                     ),
                   ),
-                ),
-            ],
+
+                  const SizedBox(height: 30),
+
+                  // Botón para reenviar
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                        color: Color(0xFF47A72F),
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _emailSent = false;
+                        _emailController.clear();
+                      });
+                    },
+                    child: const Text(
+                      'Enviar a otro correo',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF47A72F),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // Botón volver al login
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF47A72F),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      elevation: 2,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Volver al inicio de sesión',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 30),
+
+                // Información adicional
+                if (!_emailSent)
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.blue.shade200,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.blue.shade700,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Revisa tu bandeja de entrada y la carpeta de spam. El correo puede tardar unos minutos en llegar.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue.shade900,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 20),
+
+                // Volver atrás
+                if (!_emailSent)
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Volver al inicio de sesión',
+                      style: TextStyle(
+                        color: Color(0xFF47A72F),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
