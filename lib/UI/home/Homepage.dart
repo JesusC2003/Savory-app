@@ -18,11 +18,21 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   bool _showFabLabel = false;
 
-  final List<Widget> _pages = const [
-    RecetasPage(),
-    DespensaPage(),
-    PerfilPage(),
-  ];
+  // Keys para acceder a los métodos de las páginas
+  final GlobalKey<DespensaPageState> _despensaKey = GlobalKey<DespensaPageState>();
+  final GlobalKey<RecetasPageState> _recetasKey = GlobalKey<RecetasPageState>();
+
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      RecetasPage(key: _recetasKey),
+      DespensaPage(key: _despensaKey),
+      const PerfilPage(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -73,13 +83,22 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
   void _onFabPressed() {
     switch (_selectedIndex) {
       case 0:
-        // TODO: Ir a pantalla para crear receta
+        // Llamar al método para agregar receta
+        _recetasKey.currentState?.showAddRecipeDialog();
         break;
       case 1:
-        // TODO: Agregar ingrediente
+        // Llamar al método para agregar ingrediente
+        _despensaKey.currentState?.showAddIngredientDialog();
         break;
       case 2:
-        // TODO: Editar perfil
+        // Mostrar mensaje de función en desarrollo
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Función de editar perfil en desarrollo'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         break;
     }
   }
@@ -110,7 +129,15 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
             IconButton(
               icon: const Icon(Icons.notifications_none_outlined,
                   color: Colors.grey, size: 26),
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Notificaciones en desarrollo'),
+                    backgroundColor: Colors.orange,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -135,6 +162,9 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
                     borderSide: BorderSide.none,
                   ),
                 ),
+                onChanged: (value) {
+                  // TODO: Implementar búsqueda de recetas
+                },
               ),
             ),
 
