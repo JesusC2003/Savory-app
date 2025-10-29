@@ -14,11 +14,29 @@ class _PerfilPageState extends State<PerfilPage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   Map<String, dynamic>? _userData;
   bool _loading = true;
+  bool _modoOscuro = false;
+  bool _notificaciones = false;
+  int _recetasCocinadas = 42;
+  
+  // Lista de recetas guardadas de ejemplo
+  final List<Map<String, dynamic>> _recetasGuardadas = [
+    {
+      'nombre': 'Curry de Garbanzos y Espinacas',
+      'imagen': 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400',
+      'tiempo': '45 min',
+    },
+    {
+      'nombre': 'Tacos de Lentejas Picantes',
+      'imagen': 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=400',
+      'tiempo': '30 min',
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadPreferences();
   }
 
   Future<void> _loadUserData() async {
@@ -33,6 +51,7 @@ class _PerfilPageState extends State<PerfilPage> {
       if (doc.exists) {
         setState(() {
           _userData = doc.data();
+          _recetasCocinadas = _userData?['recetas_cocinadas'] ?? 42;
           _loading = false;
         });
       } else {
@@ -41,6 +60,45 @@ class _PerfilPageState extends State<PerfilPage> {
     } catch (e) {
       setState(() => _loading = false);
       _showSnackBar('Error al cargar datos: ${e.toString()}', Colors.redAccent);
+    }
+  }
+
+  Future<void> _loadPreferences() async {
+    if (_currentUser == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_currentUser!.uid)
+          .collection('preferencias')
+          .doc('configuracion')
+          .get();
+
+      if (doc.exists) {
+        setState(() {
+          _modoOscuro = doc.data()?['modo_oscuro'] ?? false;
+          _notificaciones = doc.data()?['notificaciones'] ?? false;
+        });
+      }
+    } catch (e) {
+      // Error silencioso para preferencias
+    }
+  }
+
+  Future<void> _savePreference(String key, bool value) async {
+    if (_currentUser == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(_currentUser!.uid)
+          .collection('preferencias')
+          .doc('configuracion')
+          .set({
+        key: value,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      _showSnackBar('Error al guardar preferencia', Colors.redAccent);
     }
   }
 
@@ -124,8 +182,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
     final nombre = _userData?['nombre'] ?? _currentUser?.displayName ?? 'Usuario';
     final correo = _userData?['correo'] ?? _currentUser?.email ?? 'Sin correo';
-    final tipoCuenta = _userData?['tipo_cuenta'] ?? 'gratuita';
-    final fechaRegistro = _userData?['fecha_registro'];
+    final username = _userData?['username'] ?? 'usuario';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -139,33 +196,19 @@ class _PerfilPageState extends State<PerfilPage> {
               CircleAvatar(
                 radius: 60,
                 backgroundColor: const Color(0xFF47A72F),
-                child: _currentUser?.photoURL != null
-                    ? ClipOval(
-                        child: Image.network(
-                          _currentUser!.photoURL!,
-                          width: 120,
-                          height: 120,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Text(
-                              _getInitials(nombre),
-                              style: const TextStyle(
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    : Text(
+                backgroundImage: _currentUser?.photoURL != null
+                    ? NetworkImage(_currentUser!.photoURL!)
+                    : null,
+                child: _currentUser?.photoURL == null
+                    ? Text(
                         _getInitials(nombre),
                         style: const TextStyle(
                           fontSize: 40,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
-                      ),
+                      )
+                    : null,
               ),
               const SizedBox(height: 15),
               Text(
@@ -174,27 +217,15 @@ class _PerfilPageState extends State<PerfilPage> {
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF47A72F),
+                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 5),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: tipoCuenta == 'premium'
-                      ? Colors.amber.shade100
-                      : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  tipoCuenta == 'premium' ? '👑 Premium' : '🆓 Gratuita',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: tipoCuenta == 'premium'
-                        ? Colors.amber.shade900
-                        : Colors.grey.shade700,
-                  ),
+              Text(
+                '@$username',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
                 ),
               ),
             ],
@@ -203,7 +234,16 @@ class _PerfilPageState extends State<PerfilPage> {
 
         const SizedBox(height: 30),
 
-        // Información del usuario
+        // Sección de Ajustes
+        const Text(
+          'Ajustes',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 10),
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -211,28 +251,184 @@ class _PerfilPageState extends State<PerfilPage> {
           ),
           child: Column(
             children: [
-              ListTile(
-                leading: const Icon(Icons.email_outlined, color: Color(0xFF47A72F)),
-                title: const Text('Correo electrónico'),
-                subtitle: Text(correo),
+              SwitchListTile(
+                secondary: const Icon(Icons.dark_mode_outlined, color: Color(0xFF47A72F)),
+                title: const Text('Modo Oscuro'),
+                value: _modoOscuro,
+                activeColor: const Color(0xFF47A72F),
+                onChanged: (value) {
+                  setState(() => _modoOscuro = value);
+                  _savePreference('modo_oscuro', value);
+                  _showSnackBar(
+                    'Modo oscuro ${value ? 'activado' : 'desactivado'}',
+                    const Color(0xFF47A72F),
+                  );
+                },
               ),
               const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.calendar_today_outlined, color: Color(0xFF47A72F)),
-                title: const Text('Miembro desde'),
-                subtitle: Text(
-                  fechaRegistro != null
-                      ? _formatDate(fechaRegistro)
-                      : 'No disponible',
-                ),
+              SwitchListTile(
+                secondary: const Icon(Icons.notifications_outlined, color: Color(0xFF47A72F)),
+                title: const Text('Notificaciones'),
+                value: _notificaciones,
+                activeColor: const Color(0xFF47A72F),
+                onChanged: (value) {
+                  setState(() => _notificaciones = value);
+                  _savePreference('notificaciones', value);
+                  _showSnackBar(
+                    'Notificaciones ${value ? 'activadas' : 'desactivadas'}',
+                    const Color(0xFF47A72F),
+                  );
+                },
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 30),
 
-        // Opciones
+        // Mis Recetas Guardadas
+        const Text(
+          'Mis Recetas Guardadas',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _recetasGuardadas.length,
+            itemBuilder: (context, index) {
+              final receta = _recetasGuardadas[index];
+              return Container(
+                width: 160,
+                margin: const EdgeInsets.only(right: 12),
+                child: Card(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        receta['imagen'],
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade300,
+                            child: const Icon(Icons.restaurant, size: 50),
+                          );
+                        },
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.8),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        left: 10,
+                        right: 10,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              receta['nombre'],
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.access_time,
+                                  color: Colors.white70,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  receta['tiempo'],
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: 30),
+
+        // Estadísticas
+        const Text(
+          'Estadísticas',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                Text(
+                  '$_recetasCocinadas',
+                  style: const TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF47A72F),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'recetas cocinadas con Savory!',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 30),
+
+        // Opciones (manteniendo las existentes)
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -245,7 +441,6 @@ class _PerfilPageState extends State<PerfilPage> {
                 title: const Text('Editar perfil'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
-                  // TODO: Implementar edición de perfil
                   _showSnackBar('Función en desarrollo', Colors.orange);
                 },
               ),
@@ -255,7 +450,6 @@ class _PerfilPageState extends State<PerfilPage> {
                 title: const Text('Mis preferencias'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
-                  // TODO: Implementar preferencias
                   _showSnackBar('Función en desarrollo', Colors.orange);
                 },
               ),
@@ -265,38 +459,12 @@ class _PerfilPageState extends State<PerfilPage> {
                 title: const Text('Configuración'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
-                  // TODO: Implementar configuración
                   _showSnackBar('Función en desarrollo', Colors.orange);
                 },
               ),
             ],
           ),
         ),
-
-        const SizedBox(height: 20),
-
-        // Upgrade a Premium (si es gratuita)
-        if (tipoCuenta != 'premium')
-          Card(
-            elevation: 2,
-            color: Colors.amber.shade50,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: ListTile(
-              leading: const Icon(Icons.star, color: Colors.amber),
-              title: const Text(
-                'Upgrade a Premium',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: const Text('Desbloquea todas las funciones'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                // TODO: Implementar upgrade
-                _showSnackBar('Función en desarrollo', Colors.orange);
-              },
-            ),
-          ),
 
         const SizedBox(height: 20),
 
@@ -332,18 +500,5 @@ class _PerfilPageState extends State<PerfilPage> {
         const SizedBox(height: 20),
       ],
     );
-  }
-
-  String _formatDate(String dateString) {
-    try {
-      final date = DateTime.parse(dateString);
-      final months = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-      ];
-      return '${date.day} de ${months[date.month - 1]} de ${date.year}';
-    } catch (e) {
-      return dateString;
-    }
   }
 }
