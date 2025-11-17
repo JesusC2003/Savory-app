@@ -1,6 +1,10 @@
+// lib/UI/home/despensa_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:proyecto_savory/services/ocr.service.dart';
 
 class DespensaPage extends StatefulWidget {
   const DespensaPage({super.key});
@@ -11,12 +15,438 @@ class DespensaPage extends StatefulWidget {
 
 class DespensaPageState extends State<DespensaPage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
+  final OcrService _ocrService = OcrService();
 
   // Método público para ser llamado desde Homepage
   void showAddIngredientDialog() {
-    _showAddIngredientDialog();
+    _mostrarOpcionesAgregarIngrediente();
   }
 
+  // ✨ NUEVO MÉTODO: Mostrar opciones de entrada
+  void _mostrarOpcionesAgregarIngrediente() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '¿Cómo deseas agregar ingredientes?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF47A72F),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Opción 1: Tomar foto
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF47A72F).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: Color(0xFF47A72F),
+                ),
+              ),
+              title: const Text('Tomar foto'),
+              subtitle: const Text('Escanear ingredientes con la cámara'),
+              onTap: () {
+                Navigator.pop(context);
+                _escanearConCamara();
+              },
+            ),
+
+            const Divider(),
+
+            // Opción 2: Subir imagen
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.photo_library,
+                  color: Colors.blue,
+                ),
+              ),
+              title: const Text('Subir imagen'),
+              subtitle: const Text('Seleccionar desde la galería'),
+              onTap: () {
+                Navigator.pop(context);
+                _escanearDesdeGaleria();
+              },
+            ),
+
+            const Divider(),
+
+            // Opción 3: Manual
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.edit,
+                  color: Colors.orange,
+                ),
+              ),
+              title: const Text('Agregar manualmente'),
+              subtitle: const Text('Escribir los ingredientes'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAddIngredientDialog();
+              },
+            ),
+
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✨ NUEVO: Escanear con cámara
+  Future<void> _escanearConCamara() async {
+    final status = await Permission.camera.request();
+    
+    if (!status.isGranted) {
+      _showSnackBar(
+        '⚠️ Necesitas conceder permisos de cámara',
+        Colors.orange,
+      );
+      return;
+    }
+
+    try {
+      _showLoadingDialog('📸 Procesando imagen...');
+
+      final ingredientes = await _ocrService.escanearDesdeCamara();
+      
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (ingredientes.isEmpty) {
+        _showSnackBar(
+          'No se detectaron ingredientes. Intenta de nuevo',
+          Colors.orange,
+        );
+        return;
+      }
+
+      _mostrarIngredientesDetectados(ingredientes);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showSnackBar('Error al escanear: ${e.toString()}', Colors.redAccent);
+    }
+  }
+
+  // ✨ NUEVO: Escanear desde galería
+  Future<void> _escanearDesdeGaleria() async {
+    try {
+      _showLoadingDialog('📷 Procesando imagen...');
+
+      final ingredientes = await _ocrService.escanearDesdeGaleria();
+      
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (ingredientes.isEmpty) {
+        _showSnackBar(
+          'No se detectaron ingredientes. Intenta de nuevo',
+          Colors.orange,
+        );
+        return;
+      }
+
+      _mostrarIngredientesDetectados(ingredientes);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showSnackBar('Error al procesar: ${e.toString()}', Colors.redAccent);
+    }
+  }
+
+  // ✨ NUEVO: Diálogo de carga
+  void _showLoadingDialog(String mensaje) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          margin: const EdgeInsets.symmetric(horizontal: 40),
+          child: Padding(
+            padding: const EdgeInsets.all(30),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  color: Color(0xFF47A72F),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  mensaje,
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✨ NUEVO: Mostrar ingredientes detectados
+  void _mostrarIngredientesDetectados(List<String> ingredientes) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 600),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF47A72F),
+                    size: 28,
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Ingredientes detectados',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF47A72F),
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(height: 30),
+              
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: ingredientes.length,
+                  itemBuilder: (context, index) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: 
+                              const Color(0xFF47A72F).withOpacity(0.1),
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              color: Color(0xFF47A72F),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          ingredientes[index],
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(
+                            Icons.add_circle,
+                            color: Color(0xFF47A72F),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _mostrarDialogoConfirmarIngrediente(
+                              ingredientes[index],
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF47A72F),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _agregarTodosLosIngredientes(ingredientes);
+                },
+                icon: const Icon(Icons.check_circle, color: Colors.white),
+                label: const Text(
+                  'Agregar todos',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✨ NUEVO: Diálogo para confirmar ingrediente individual
+  void _mostrarDialogoConfirmarIngrediente(String nombreDetectado) {
+    final TextEditingController nombreController = 
+        TextEditingController(text: nombreDetectado);
+    final TextEditingController cantidadController = 
+        TextEditingController(text: '1');
+    String unidad = 'unidades';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Confirmar ingrediente'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nombreController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre del ingrediente',
+                    border: OutlineInputBorder(),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: cantidadController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cantidad',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 15),
+                DropdownButtonFormField<String>(
+                  value: unidad,
+                  decoration: const InputDecoration(
+                    labelText: 'Unidad',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'unidades', child: Text('Unidades')),
+                    DropdownMenuItem(value: 'gramos', child: Text('Gramos (g)')),
+                    DropdownMenuItem(
+                        value: 'kilogramos', child: Text('Kilogramos (kg)')),
+                    DropdownMenuItem(value: 'litros', child: Text('Litros (L)')),
+                    DropdownMenuItem(
+                        value: 'mililitros', child: Text('Mililitros (ml)')),
+                    DropdownMenuItem(value: 'paquetes', child: Text('Paquetes')),
+                    DropdownMenuItem(value: 'latas', child: Text('Latas')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      unidad = value!;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF47A72F),
+              ),
+              onPressed: () async {
+                final nombre = nombreController.text.trim();
+                final cantidad = cantidadController.text.trim();
+
+                if (nombre.isEmpty || cantidad.isEmpty) {
+                  _showSnackBar(
+                    'Por favor completa todos los campos',
+                    Colors.redAccent,
+                  );
+                  return;
+                }
+
+                Navigator.pop(context);
+                await _addIngredient(nombre, cantidad, unidad);
+              },
+              child: const Text(
+                'Agregar',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✨ NUEVO: Agregar todos los ingredientes detectados
+  Future<void> _agregarTodosLosIngredientes(List<String> ingredientes) async {
+    int agregados = 0;
+    
+    _showLoadingDialog('Agregando ingredientes...');
+
+    for (String ingrediente in ingredientes) {
+      try {
+        await _addIngredient(ingrediente, '1', 'unidades');
+        agregados++;
+      } catch (e) {
+        // Continuar con el siguiente aunque falle uno
+      }
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context);
+
+    _showSnackBar(
+      '✓ Se agregaron $agregados de ${ingredientes.length} ingredientes',
+      const Color(0xFF47A72F),
+    );
+  }
+
+  // MÉTODO ORIGINAL: Agregar ingrediente manualmente
   void _showAddIngredientDialog() {
     final TextEditingController nombreController = TextEditingController();
     final TextEditingController cantidadController = TextEditingController();
@@ -60,9 +490,11 @@ class DespensaPageState extends State<DespensaPage> {
                   items: const [
                     DropdownMenuItem(value: 'unidades', child: Text('Unidades')),
                     DropdownMenuItem(value: 'gramos', child: Text('Gramos (g)')),
-                    DropdownMenuItem(value: 'kilogramos', child: Text('Kilogramos (kg)')),
+                    DropdownMenuItem(
+                        value: 'kilogramos', child: Text('Kilogramos (kg)')),
                     DropdownMenuItem(value: 'litros', child: Text('Litros (L)')),
-                    DropdownMenuItem(value: 'mililitros', child: Text('Mililitros (ml)')),
+                    DropdownMenuItem(
+                        value: 'mililitros', child: Text('Mililitros (ml)')),
                     DropdownMenuItem(value: 'paquetes', child: Text('Paquetes')),
                     DropdownMenuItem(value: 'latas', child: Text('Latas')),
                   ],
@@ -92,7 +524,10 @@ class DespensaPageState extends State<DespensaPage> {
                 final cantidad = cantidadController.text.trim();
 
                 if (nombre.isEmpty || cantidad.isEmpty) {
-                  _showSnackBar('Por favor completa todos los campos', Colors.redAccent);
+                  _showSnackBar(
+                    'Por favor completa todos los campos',
+                    Colors.redAccent,
+                  );
                   return;
                 }
 
@@ -213,9 +648,11 @@ class DespensaPageState extends State<DespensaPage> {
                   items: const [
                     DropdownMenuItem(value: 'unidades', child: Text('Unidades')),
                     DropdownMenuItem(value: 'gramos', child: Text('Gramos (g)')),
-                    DropdownMenuItem(value: 'kilogramos', child: Text('Kilogramos (kg)')),
+                    DropdownMenuItem(
+                        value: 'kilogramos', child: Text('Kilogramos (kg)')),
                     DropdownMenuItem(value: 'litros', child: Text('Litros (L)')),
-                    DropdownMenuItem(value: 'mililitros', child: Text('Mililitros (ml)')),
+                    DropdownMenuItem(
+                        value: 'mililitros', child: Text('Mililitros (ml)')),
                     DropdownMenuItem(value: 'paquetes', child: Text('Paquetes')),
                     DropdownMenuItem(value: 'latas', child: Text('Latas')),
                   ],
@@ -245,7 +682,10 @@ class DespensaPageState extends State<DespensaPage> {
                 final cantidad = cantidadController.text.trim();
 
                 if (nombre.isEmpty || cantidad.isEmpty) {
-                  _showSnackBar('Por favor completa todos los campos', Colors.redAccent);
+                  _showSnackBar(
+                    'Por favor completa todos los campos',
+                    Colors.redAccent,
+                  );
                   return;
                 }
 
@@ -378,7 +818,7 @@ class DespensaPageState extends State<DespensaPage> {
                     backgroundColor: const Color(0xFF47A72F),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
-                  onPressed: _showAddIngredientDialog,
+                  onPressed: showAddIngredientDialog,
                   icon: const Icon(Icons.add, color: Colors.white),
                   label: const Text(
                     'Agregar ingrediente',
@@ -460,5 +900,11 @@ class DespensaPageState extends State<DespensaPage> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _ocrService.dispose();
+    super.dispose();
   }
 }
