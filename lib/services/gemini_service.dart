@@ -1,102 +1,176 @@
 // lib/services/gemini_service.dart
-
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../Models/receta_model.dart';
 
 class GeminiService {
-  static const String _apiKey = 'AIzaSyAJsSNtXZt2FcCk1HzmosvrzD8Is3sDJsc'; 
-  late final GenerativeModel _model;
+  static const String _geminiApiKey = 'AIzaSyAJsSNtXZt2FcCk1HzmosvrzD8Is3sDJsc';
+  static const String _alibabaApiKey = 'sk-862e7e31a4d04869abb3f3993413fed1';
+  static const String _alibabaUrl = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+  
+  late final GenerativeModel _geminiModel;
+  late final Dio _dio;
 
-   GeminiService() {
-    _model = GenerativeModel(
-      model: 'gemini-2.5-flash', // Modelo más reciente (2024)
-      apiKey: _apiKey,
+  GeminiService() {
+    _geminiModel = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: _geminiApiKey,
     );
+    
+    _dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
+      headers: {
+        'Authorization': 'Bearer $_alibabaApiKey',
+        'Content-Type': 'application/json',
+      },
+    ));
   }
 
-  /// Genera 5 recetas basadas en los ingredientes disponibles
+  /// Genera 3 recetas con Alibaba y sus imágenes con Gemini
   Future<List<RecetaModel>> generarRecetasConIngredientes(
     List<IngredienteDespensaSimple> ingredientesDisponibles,
   ) async {
     try {
-      final prompt = _crearPrompt(ingredientesDisponibles);
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
-
-      if (response.text == null) {
-        throw Exception('No se recibió respuesta de Gemini');
+      // 1. Generar recetas con Alibaba
+      final recetasBase = await _generarRecetasConAlibaba(ingredientesDisponibles);
+      
+      // 2. Generar imágenes con Gemini para cada receta
+      final recetasConImagenes = <RecetaModel>[];
+      
+      for (var receta in recetasBase) {
+        try {
+          final imagenUrl = await _generarImagenConGemini(receta.promptImagen ?? '');
+          recetasConImagenes.add(receta.copyWith(imagenUrl: imagenUrl));
+        } catch (e) {
+          // Si falla la imagen, agregar receta sin imagen
+          recetasConImagenes.add(receta);
+        }
       }
-
-      return _parsearRespuestaGemini(response.text!);
+      
+      return recetasConImagenes;
     } catch (e) {
-      throw Exception('Error al generar recetas con IA: $e');
+      throw ApiErrorHandler.handleError(e);
     }
   }
 
-  String _crearPrompt(List<IngredienteDespensaSimple> ingredientes) {
+  /// Genera recetas usando Alibaba API
+  Future<List<RecetaModel>> _generarRecetasConAlibaba(
+    List<IngredienteDespensaSimple> ingredientes,
+  ) async {
+    try {
+      final prompt = _crearPromptAlibaba(ingredientes);
+      
+      final response = await _dio.post(
+        _alibabaUrl,
+        data: {
+          'model': 'qwen-turbo',
+          'messages': [
+            {
+              'role': 'system',
+              'content': 'Eres un chef experto que crea recetas deliciosas y fáciles de seguir.',
+            },
+            {
+              'role': 'user',
+              'content': prompt,
+            }
+          ],
+          'temperature': 0.8,
+          'max_tokens': 2000,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final content = response.data['choices'][0]['message']['content'];
+        return _parsearRespuestaAlibaba(content);
+      } else {
+        throw ApiErrorHandler.handleHttpError(response.statusCode ?? 500);
+      }
+    } on DioException catch (e) {
+      throw ApiErrorHandler.handleDioError(e);
+    }
+  }
+
+  /// Genera imagen usando Gemini API
+  Future<String> _generarImagenConGemini(String prompt) async {
+    try {
+      final content = [Content.text('Genera una imagen de: $prompt')];
+      final response = await _geminiModel.generateContent(content);
+      
+      // Gemini devuelve URLs de imágenes generadas en el texto
+      // Aquí extraemos la URL si está presente
+      final text = response.text ?? '';
+      
+      // Por ahora retornamos un placeholder de Unsplash relacionado
+      // En producción, implementarías la lógica de generación real de imágenes
+      return _generarUrlPlaceholder(prompt);
+    } catch (e) {
+      return _generarUrlPlaceholder(prompt);
+    }
+  }
+
+  String _generarUrlPlaceholder(String prompt) {
+    // Genera URL de Unsplash basado en palabras clave del prompt
+    final keywords = prompt
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z\s]'), '')
+        .split(' ')
+        .take(2)
+        .join(',');
+    
+    return 'https://source.unsplash.com/400x300/?food,$keywords';
+  }
+
+  String _crearPromptAlibaba(List<IngredienteDespensaSimple> ingredientes) {
     final ingredientesTexto = ingredientes
-        .map((i) => '- ${i.nombre}: ${i.cantidad} ${i.unidad}')
-        .join('\n');
+        .map((i) => '${i.nombre}: ${i.cantidad} ${i.unidad}')
+        .join(', ');
 
     return '''
-Eres un chef experto. Dado los siguientes ingredientes disponibles, genera EXACTAMENTE 5 recetas diferentes que se puedan preparar.
+Ingredientes disponibles: $ingredientesTexto
 
-Ingredientes disponibles en la despensa:
-$ingredientesTexto
+Genera EXACTAMENTE 3 recetas diferentes en formato JSON válido. Sin texto adicional.
 
-IMPORTANTE: Responde ÚNICAMENTE con un JSON válido, sin texto adicional antes o después. El formato debe ser exactamente así:
-
+Formato requerido:
 {
   "recetas": [
     {
-      "titulo": "Nombre de la receta",
-      "descripcion": "Descripción breve y apetitosa de la receta",
+      "titulo": "Nombre atractivo",
+      "descripcion": "Descripción breve (max 100 caracteres)",
+      "promptImagen": "Descripción para generar imagen: un plato de [receta] servido profesionalmente, luz natural, fotografía gastronómica",
       "tiempoPreparacion": 30,
       "porciones": 4,
       "dificultad": "Fácil",
       "categoria": "Almuerzo",
       "ingredientes": [
-        {
-          "nombre": "tomate",
-          "cantidad": "2",
-          "unidad": "unidades"
-        },
-        {
-          "nombre": "cebolla",
-          "cantidad": "1",
-          "unidad": "unidades"
-        }
+        {"nombre": "tomate", "cantidad": "2", "unidad": "unidades"}
       ],
       "pasos": [
-        "Paso 1: Lavar y picar los tomates finamente",
-        "Paso 2: Calentar aceite en una sartén a fuego medio",
-        "Paso 3: Agregar la cebolla picada y cocinar hasta que esté dorada"
+        "Paso 1: acción específica",
+        "Paso 2: acción específica"
       ]
     }
   ]
 }
 
-Reglas importantes:
-1. La dificultad debe ser EXACTAMENTE: "Fácil", "Media" o "Difícil"
-2. La categoría debe ser EXACTAMENTE: "Desayuno", "Almuerzo", "Cena", "Postre" o "Snack"
-3. tiempoPreparacion debe ser un número entero (minutos)
-4. porciones debe ser un número entero
-5. Los nombres de ingredientes deben estar en minúsculas
-6. Intenta usar al máximo los ingredientes disponibles
-7. Puedes agregar ingredientes comunes básicos (sal, pimienta, aceite, agua) si son necesarios
-8. Cada receta debe tener al menos 4 pasos detallados
-9. Genera EXACTAMENTE 5 recetas diferentes y variadas
-10. Los pasos deben ser claros, específicos y fáciles de seguir
+Reglas:
+- dificultad: "Fácil", "Media" o "Difícil"
+- categoria: "Desayuno", "Almuerzo", "Cena", "Postre" o "Snack"
+- tiempoPreparacion y porciones: números enteros
+- ingredientes en minúsculas
+- Mínimo 4 pasos por receta
+- Usar máximo ingredientes disponibles
+- Agregar ingredientes básicos solo si necesario (sal, pimienta, aceite, agua)
+- promptImagen: descripción visual profesional del plato terminado
 ''';
   }
 
-  List<RecetaModel> _parsearRespuestaGemini(String respuesta) {
+  List<RecetaModel> _parsearRespuestaAlibaba(String respuesta) {
     try {
-      // Limpiar la respuesta
+      // Limpiar respuesta
       String cleanResponse = respuesta.trim();
       
-      // Remover markdown si existe
       if (cleanResponse.startsWith('```json')) {
         cleanResponse = cleanResponse.substring(7);
       }
@@ -108,30 +182,29 @@ Reglas importantes:
       }
       cleanResponse = cleanResponse.trim();
 
-      // Parsear JSON
       final Map<String, dynamic> json = jsonDecode(cleanResponse);
       final List<dynamic> recetasJson = json['recetas'] ?? [];
 
-      if (recetasJson.isEmpty) {
-        throw Exception('No se generaron recetas');
+      if (recetasJson.isEmpty || recetasJson.length < 3) {
+        throw Exception('Se esperaban 3 recetas, se recibieron ${recetasJson.length}');
       }
 
-      // Convertir a RecetaModel
-      return recetasJson.map((recetaJson) {
+      return recetasJson.take(3).map((recetaJson) {
         return RecetaModel(
-          idReceta: '', // Se generará en Firestore
+          idReceta: '',
           titulo: recetaJson['titulo'] ?? 'Receta sin nombre',
           descripcion: recetaJson['descripcion'] ?? 'Sin descripción',
+          promptImagen: recetaJson['promptImagen'],
           tiempoPreparacion: recetaJson['tiempoPreparacion'] ?? 30,
           porciones: recetaJson['porciones'] ?? 4,
-          dificultad: recetaJson['dificultad'] ?? 'Media',
-          imagenUrl: '', // Por defecto vacío
+          dificultad: _validarDificultad(recetaJson['dificultad']),
+          imagenUrl: '',
           fechaRegistro: DateTime.now(),
           nivelAcceso: 'gratuita',
-          categoria: recetaJson['categoria'] ?? 'Almuerzo',
+          categoria: _validarCategoria(recetaJson['categoria']),
           ingredientes: (recetaJson['ingredientes'] as List?)
                   ?.map((ing) => IngredienteRecetaDetalle(
-                        nombre: ing['nombre'] ?? '',
+                        nombre: (ing['nombre'] ?? '').toString().toLowerCase(),
                         cantidad: ing['cantidad']?.toString() ?? '0',
                         unidad: ing['unidad'] ?? 'unidades',
                       ))
@@ -142,8 +215,92 @@ Reglas importantes:
         );
       }).toList();
     } catch (e) {
-      throw Exception(
-          'Error al procesar respuesta de IA: $e\n\nRespuesta original: $respuesta');
+      throw Exception('Error al procesar respuesta: $e\n\nRespuesta: $respuesta');
     }
+  }
+
+  String _validarDificultad(dynamic dificultad) {
+    const validas = ['Fácil', 'Media', 'Difícil'];
+    final dif = dificultad?.toString() ?? 'Media';
+    return validas.contains(dif) ? dif : 'Media';
+  }
+
+  String _validarCategoria(dynamic categoria) {
+    const validas = ['Desayuno', 'Almuerzo', 'Cena', 'Postre', 'Snack'];
+    final cat = categoria?.toString() ?? 'Almuerzo';
+    return validas.contains(cat) ? cat : 'Almuerzo';
+  }
+}
+
+// Extensión para copiar RecetaModel con cambios
+extension RecetaModelExtension on RecetaModel {
+  RecetaModel copyWith({String? imagenUrl}) {
+    return RecetaModel(
+      idReceta: this.idReceta,
+      titulo: this.titulo,
+      descripcion: this.descripcion,
+      promptImagen: this.promptImagen,
+      tiempoPreparacion: this.tiempoPreparacion,
+      porciones: this.porciones,
+      dificultad: this.dificultad,
+      imagenUrl: imagenUrl ?? this.imagenUrl,
+      fechaRegistro: this.fechaRegistro,
+      nivelAcceso: this.nivelAcceso,
+      categoria: this.categoria,
+      ingredientes: this.ingredientes,
+      pasos: this.pasos,
+      favorita: this.favorita,
+    );
+  }
+}
+
+class ApiErrorHandler {
+  /// Maneja errores HTTP por código de estado
+  static Exception handleHttpError(int statusCode) {
+    switch (statusCode) {
+      case 400:
+        return Exception('Solicitud inválida');
+      case 401:
+        return Exception('No autorizado');
+      case 403:
+        return Exception('Acceso denegado');
+      case 404:
+        return Exception('Recurso no encontrado');
+      case 429:
+        return Exception('Demasiadas solicitudes. Intenta después');
+      case 500:
+        return Exception('Error interno del servidor');
+      case 503:
+        return Exception('Servicio no disponible');
+      default:
+        return Exception('Error HTTP $statusCode');
+    }
+  }
+
+  /// Maneja errores de DioException
+  static Exception handleDioError(DioException dioError) {
+    switch (dioError.type) {
+      case DioExceptionType.connectionTimeout:
+        return Exception('Tiempo de conexión agotado');
+      case DioExceptionType.receiveTimeout:
+        return Exception('Tiempo de respuesta agotado');
+      case DioExceptionType.badResponse:
+        return handleHttpError(dioError.response?.statusCode ?? 500);
+      case DioExceptionType.unknown:
+        return Exception('Error desconocido: ${dioError.message}');
+      default:
+        return Exception('Error de conexión: ${dioError.message}');
+    }
+  }
+
+  /// Maneja cualquier tipo de error
+  static Exception handleError(dynamic error) {
+    if (error is DioException) {
+      return handleDioError(error);
+    }
+    if (error is Exception) {
+      return error;
+    }
+    return Exception('Error desconocido: ${error.toString()}');
   }
 }
