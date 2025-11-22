@@ -24,7 +24,6 @@ class RecetasPageState extends State<RecetasPage> {
     setState(() => _isGenerating = true);
 
     try {
-      // 1. Verificar ingredientes en despensa
       final ingredientes = await _controller.obtenerIngredientesDespensa();
 
       if (ingredientes.isEmpty) {
@@ -38,13 +37,11 @@ class RecetasPageState extends State<RecetasPage> {
         return;
       }
 
-      // 2. Generar recetas con IA
       final recetasGeneradas = await _controller.generarRecetasConIA();
       setState(() => _isGenerating = false);
 
       if (!mounted) return;
 
-      // 3. Mostrar diálogo con recetas generadas
       _mostrarDialogoRecetasGeneradas(recetasGeneradas, ingredientes);
     } catch (e) {
       setState(() => _isGenerating = false);
@@ -69,7 +66,6 @@ class RecetasPageState extends State<RecetasPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -95,7 +91,6 @@ class RecetasPageState extends State<RecetasPage> {
               ),
               const Divider(height: 30),
 
-              // Lista de recetas
               Expanded(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -142,7 +137,6 @@ class RecetasPageState extends State<RecetasPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Título y descripción
               Row(
                 children: [
                   Container(
@@ -186,7 +180,6 @@ class RecetasPageState extends State<RecetasPage> {
               ),
               const SizedBox(height: 12),
 
-              // Chips informativos
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -201,7 +194,6 @@ class RecetasPageState extends State<RecetasPage> {
               ),
               const SizedBox(height: 12),
 
-              // Botón agregar
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -246,7 +238,6 @@ class RecetasPageState extends State<RecetasPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
@@ -276,7 +267,6 @@ class RecetasPageState extends State<RecetasPage> {
                 ),
               ),
 
-              // Contenido
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -612,12 +602,12 @@ class RecetasPageState extends State<RecetasPage> {
           );
         }
 
-        // Grid de recetas guardadas
+        // Grid de recetas guardadas - ARREGLADO
         return GridView.builder(
           padding: const EdgeInsets.all(16),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.75,
+            childAspectRatio: 0.6, // Cambiado a 0.6 para aún más altura
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
@@ -645,7 +635,7 @@ class RecetasPageState extends State<RecetasPage> {
                   children: [
                     // Imagen/Icono superior
                     Container(
-                      height: 120,
+                      height: 100, // Reducido de 120 a 100
                       decoration: BoxDecoration(
                         color: const Color(0xFF47A72F).withOpacity(0.1),
                         borderRadius: const BorderRadius.only(
@@ -656,37 +646,41 @@ class RecetasPageState extends State<RecetasPage> {
                       child: Center(
                         child: Icon(
                           _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
-                          size: 50,
+                          size: 45, // Reducido de 50 a 45
                           color: const Color(0xFF47A72F),
                         ),
                       ),
                     ),
 
-                    // Contenido
+                    // Contenido - ARREGLADO
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(10), // Reducido de 12 a 10
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Título
                             Text(
                               receta.titulo,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                fontSize: 13, // Reducido de 14 a 13
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const Spacer(),
+                            const SizedBox(height: 6),
+                            
+                            // Tiempo
                             Row(
                               children: [
                                 Icon(
                                   Icons.timer_outlined,
-                                  size: 14,
+                                  size: 13, // Reducido de 14 a 13
                                   color: Colors.grey.shade600,
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 3),
                                 Text(
                                   '${receta.tiempoPreparacion} min',
                                   style: TextStyle(
@@ -697,15 +691,17 @@ class RecetasPageState extends State<RecetasPage> {
                               ],
                             ),
                             const SizedBox(height: 4),
+                            
+                            // Dificultad
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                                horizontal: 6,
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
                                 color: _getDifficultyColor(receta.dificultad)
                                     .withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 receta.dificultad,
@@ -721,68 +717,84 @@ class RecetasPageState extends State<RecetasPage> {
                       ),
                     ),
 
-                    // Acciones
-                    Row(
-                      children: [
-                        Expanded(
-                          child: IconButton(
-                            icon: Icon(
-                              (receta.favorita ?? false)
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: (receta.favorita ?? false)
-                                  ? Colors.red
-                                  : Colors.grey,
-                              size: 20,
-                            ),
-                            onPressed: () => _controller.toggleFavorita(
-                              receta.idReceta,
-                              receta.favorita ?? false,
-                            ),
-                          ),
+                    // Acciones - ARREGLADO
+                    Container(
+                      height: 40, // Altura fija para los botones
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Colors.grey.shade200),
                         ),
-                        Expanded(
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Eliminar receta'),
-                                  content: Text(
-                                    '¿Estás seguro de eliminar "${receta.titulo}"?',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Cancelar'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () async {
-                                        Navigator.pop(context);
-                                        await _controller
-                                            .eliminarRecetaUsuario(receta.idReceta);
-                                        _showSnackBar(
-                                          'Receta eliminada',
-                                          const Color(0xFF47A72F),
-                                        );
-                                      },
-                                      child: const Text(
-                                        'Eliminar',
-                                        style: TextStyle(color: Colors.redAccent),
-                                      ),
-                                    ),
-                                  ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _controller.toggleFavorita(
+                                receta.idReceta,
+                                receta.favorita ?? false,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  (receta.favorita ?? false)
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: (receta.favorita ?? false)
+                                      ? Colors.red
+                                      : Colors.grey,
+                                  size: 20,
                                 ),
-                              );
-                            },
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          Container(
+                            width: 1,
+                            color: Colors.grey.shade200,
+                          ),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Eliminar receta'),
+                                    content: Text(
+                                      '¿Estás seguro de eliminar "${receta.titulo}"?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          Navigator.pop(context);
+                                          await _controller
+                                              .eliminarRecetaUsuario(receta.idReceta);
+                                          _showSnackBar(
+                                            'Receta eliminada',
+                                            const Color(0xFF47A72F),
+                                          );
+                                        },
+                                        child: const Text(
+                                          'Eliminar',
+                                          style: TextStyle(color: Colors.redAccent),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: const Center(
+                                child: Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
