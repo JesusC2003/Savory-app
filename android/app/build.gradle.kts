@@ -7,8 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.proyecto_savory"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 36  // ✅ Cambiado de 34
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -16,27 +15,23 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     defaultConfig {
         applicationId = "com.example.proyecto_savory"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        targetSdk = 34  // ✅ Se mantiene en 34 (comportamiento runtime)
+        versionCode = 1
+        versionName = "1.0.0"
+        multiDexEnabled = true
     }
 
     buildTypes {
         getByName("release") {
-            // Usar firma debug por ahora
             signingConfig = signingConfigs.getByName("debug")
-
-            // 🔥 Activar R8 y ProGuard
             isMinifyEnabled = true
             isShrinkResources = false
-
-            // Archivos de reglas
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -47,4 +42,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("androidx.multidex:multidex:2.0.1")
 }

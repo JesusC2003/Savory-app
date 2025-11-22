@@ -19,7 +19,7 @@ dependencies:
   google_sign_in: ^6.2.1
   google_generative_ai: ^0.4.7
   image_picker: ^1.1.2              # Para cámara y galería
-  google_mlkit_text_recognition: ^0.13.1  # OCR de Firebase ML Kit
+  google_mlkit_text_recognition: ^0.13.1  # OCRebase ML Kit
   permission_handler: ^11.3.1       # Permisos de cámara
 
 dev_dependencies:
