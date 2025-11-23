@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:proyecto_savory/services/ocr.service.dart';
+import 'package:proyecto_savory/controllers/despensa_controller.dart';
+import 'package:proyecto_savory/Models/despensa_model.dart';
 
 class DespensaPage extends StatefulWidget {
   const DespensaPage({super.key});
@@ -16,6 +18,61 @@ class DespensaPage extends StatefulWidget {
 class DespensaPageState extends State<DespensaPage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   final OcrService _ocrService = OcrService();
+  final DespensaController _despensaController = DespensaController();
+  
+  String? _despensaActualId;
+  bool _cargandoDespensa = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _inicializarDespensa();
+  }
+
+  /// Inicializa o crea la despensa del usuario
+  Future<void> _inicializarDespensa() async {
+    if (_currentUser == null) {
+      setState(() => _cargandoDespensa = false);
+      return;
+    }
+
+    try {
+      // Buscar despensa existente del usuario
+      final despensas = await _despensaController
+          .listarDespensasDeUsuario(_currentUser!.uid)
+          .first;
+
+      if (despensas.isEmpty) {
+        // Crear despensa por defecto si no existe
+        final nuevaDespensa = DespensaModel(
+          idDespensa: FirebaseFirestore.instance
+              .collection('despensas')
+              .doc()
+              .id,
+          idUsuario: _currentUser!.uid,
+          nombre: 'Mi Despensa',
+        );
+
+        await _despensaController.registrarDespensa(nuevaDespensa);
+        setState(() {
+          _despensaActualId = nuevaDespensa.idDespensa;
+          _cargandoDespensa = false;
+        });
+      } else {
+        // Usar la primera despensa encontrada
+        setState(() {
+          _despensaActualId = despensas.first.idDespensa;
+          _cargandoDespensa = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _cargandoDespensa = false);
+      _showSnackBar(
+        'Error al cargar despensa: ${e.toString()}',
+        Colors.redAccent,
+      );
+    }
+  }
 
   // Método público para ser llamado desde Homepage
   void showAddIngredientDialog() {
@@ -546,7 +603,7 @@ class DespensaPageState extends State<DespensaPage> {
   }
 
   Future<void> _addIngredient(String nombre, String cantidad, String unidad) async {
-    if (_currentUser == null) return;
+    if (_currentUser == null || _despensaActualId == null) return;
 
     try {
       await FirebaseFirestore.instance
@@ -558,6 +615,7 @@ class DespensaPageState extends State<DespensaPage> {
         'cantidad': cantidad,
         'unidad': unidad,
         'fecha_agregado': DateTime.now().toIso8601String(),
+        'id_despensa': _despensaActualId, // Relacionar con la despensa
       });
 
       _showSnackBar('Ingrediente agregado exitosamente', const Color(0xFF47A72F));
@@ -758,6 +816,14 @@ class DespensaPageState extends State<DespensaPage> {
     if (_currentUser == null) {
       return const Center(
         child: Text('Por favor inicia sesión'),
+      );
+    }
+
+    if (_cargandoDespensa) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF47A72F),
+        ),
       );
     }
 
