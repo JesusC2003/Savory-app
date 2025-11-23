@@ -1,39 +1,157 @@
-import '../Models/despensa_model.dart';
-import '../services/despensa_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DespensaController {
-  final DespensaService _service = DespensaService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  /// Crear una despensa validando los datos
-  Future<void> registrarDespensa(DespensaModel despensa) async {
-    if (despensa.nombre.isEmpty) {
-      throw Exception('El nombre de la despensa no puede estar vacío.');
+  User? get currentUser => _auth.currentUser;
+
+  /// Obtener stream de ingredientes de la despensa
+  Stream<QuerySnapshot> obtenerIngredientes() {
+    if (currentUser == null) {
+      return const Stream.empty();
     }
-    await _service.crearDespensa(despensa);
+
+    return _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa')
+        .orderBy('fecha_agregado', descending: true)
+        .snapshots();
   }
 
-  /// Obtener despensa por ID
-  Future<DespensaModel?> obtenerDespensaPorId(String id) {
-    return _service.obtenerDespensa(id);
+  /// Agregar un solo ingrediente
+  Future<void> agregarIngrediente({
+    required String nombre,
+    required String cantidad,
+    required String unidad,
+  }) async {
+    if (currentUser == null) {
+      throw Exception('Usuario no autenticado');
+    }
+
+    await _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa')
+        .add({
+      'nombre': nombre,
+      'cantidad': cantidad,
+      'unidad': unidad,
+      'fecha_agregado': DateTime.now().toIso8601String(),
+    });
   }
 
-  /// Actualizar despensa
-  Future<void> actualizarDespensa(DespensaModel despensa) async {
-    await _service.actualizarDespensa(despensa);
+  /// Agregar múltiples ingredientes en lote (batch)
+  Future<void> agregarIngredientesLote(List<String> ingredientes) async {
+    if (currentUser == null) {
+      throw Exception('Usuario no autenticado');
+    }
+
+    if (ingredientes.isEmpty) {
+      throw Exception('No hay ingredientes para agregar');
+    }
+
+    final batch = _firestore.batch();
+    final despensaRef = _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa');
+
+    for (String ingrediente in ingredientes) {
+      final docRef = despensaRef.doc();
+      batch.set(docRef, {
+        'nombre': ingrediente,
+        'cantidad': '1',
+        'unidad': 'unidades',
+        'fecha_agregado': DateTime.now().toIso8601String(),
+      });
+    }
+
+    await batch.commit();
   }
 
-  /// Eliminar despensa
-  Future<void> eliminarDespensa(String id) async {
-    await _service.eliminarDespensa(id);
+  /// Actualizar un ingrediente
+  Future<void> actualizarIngrediente({
+    required String docId,
+    required String nombre,
+    required String cantidad,
+    required String unidad,
+  }) async {
+    if (currentUser == null) {
+      throw Exception('Usuario no autenticado');
+    }
+
+    await _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa')
+        .doc(docId)
+        .update({
+      'nombre': nombre,
+      'cantidad': cantidad,
+      'unidad': unidad,
+    });
   }
 
-  /// Listar despensas por usuario
-  Stream<List<DespensaModel>> listarDespensasDeUsuario(String idUsuario) {
-    return _service.obtenerDespensasPorUsuario(idUsuario);
+  /// Eliminar un ingrediente
+  Future<void> eliminarIngrediente(String docId) async {
+    if (currentUser == null) {
+      throw Exception('Usuario no autenticado');
+    }
+
+    await _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa')
+        .doc(docId)
+        .delete();
   }
 
-  /// Listar todas las despensas (solo para depuración o vista global)
-  Stream<List<DespensaModel>> listarTodasDespensas() {
-    return _service.obtenerTodas();
+  /// Verificar si un ingrediente ya existe
+  Future<bool> ingredienteExiste(String nombre) async {
+    if (currentUser == null) return false;final query = await _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa')
+        .where('nombre', isEqualTo: nombre.toLowerCase())
+        .limit(1)
+        .get();
+
+    return query.docs.isNotEmpty;
+  }
+
+  /// Obtener cantidad total de ingredientes
+  Future<int> obtenerCantidadTotal() async {
+    if (currentUser == null) return 0;
+
+    final snapshot = await _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa')
+        .get();
+
+    return snapshot.docs.length;
+  }
+
+  /// Limpiar toda la despensa
+  Future<void> limpiarDespensa() async {
+    if (currentUser == null) {
+      throw Exception('Usuario no autenticado');
+    }
+
+    final batch = _firestore.batch();
+    final snapshot = await _firestore
+        .collection('usuarios')
+        .doc(currentUser!.uid)
+        .collection('despensa')
+        .get();
+
+    for (var doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
   }
 }
