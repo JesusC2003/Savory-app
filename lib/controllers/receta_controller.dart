@@ -174,6 +174,22 @@ class RecetaController {
     }
   }
 
+  /// Marcar receta como preparada
+  Future<void> togglePreparada(String recetaId, bool estadoActual) async {
+    if (currentUser == null) return;
+
+    try {
+      await _firestore
+          .collection('usuarios')
+          .doc(currentUser!.uid)
+          .collection('recetas')
+          .doc(recetaId)
+          .update({'preparada': !estadoActual});
+    } catch (e) {
+      throw Exception('Error al actualizar preparada: $e');
+    }
+  }
+
   // ===== Métodos originales del controller =====
 
   /// Obtener una receta por su ID

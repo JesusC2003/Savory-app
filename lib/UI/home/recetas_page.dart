@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../controllers/receta_controller.dart';
+import '../../controllers/receta_del_dia_controller.dart';
 import '../../Models/receta_model.dart';
 
 class RecetasPage extends StatefulWidget {
@@ -13,6 +14,7 @@ class RecetasPage extends StatefulWidget {
 
 class RecetasPageState extends State<RecetasPage> {
   final RecetaController _controller = RecetaController();
+  final RecetaDelDiaController _recetaDelDiaController = RecetaDelDiaController();
   bool _isGenerating = false;
 
   // Método público llamado desde Homepage
@@ -684,6 +686,8 @@ class RecetasPageState extends State<RecetasPage> {
         }
 
         final recetas = snapshot.data ?? [];
+        final recetasPreparadas =
+            recetas.where((r) => r.preparada == true).toList();
 
         if (recetas.isEmpty) {
           return Center(
@@ -731,240 +735,449 @@ class RecetasPageState extends State<RecetasPage> {
           );
         }
 
-        // Grid de recetas guardadas - ARREGLADO
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.6, // Cambiado a 0.6 para aún más altura
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: recetas.length,
-          itemBuilder: (context, index) {
-            final receta = recetas[index];
-
-            return Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: InkWell(
-                onTap: () async {
-                  final despensa =
-                      await _controller.obtenerIngredientesDespensa();
-                  final estados =
-                      _controller.verificarEstadoIngredientes(receta, despensa);
-                  if (!mounted) return;
-                  _mostrarDetalleReceta(receta, estados);
-                },
-                borderRadius: BorderRadius.circular(15),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  // Imagen/Icono superior
-                  Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        topRight: Radius.circular(15),
-                      ),
-                    ),
-                    child: receta.imagenUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(15),
-                              topRight: Radius.circular(15),
-                            ),
-                            child: Image.network(
-                              receta.imagenUrl,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    color: const Color(0xFF47A72F),
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey.shade200,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey.shade400,
-                                      size: 40,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                        : Center(
-                            child: Icon(
-                              _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
-                              size: 50,
-                              color: const Color(0xFF47A72F),
-                            ),
-                          ),
-                  ),                    // Contenido - ARREGLADO
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(10), // Reducido de 12 a 10
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Título
-                            Text(
-                              receta.titulo,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13, // Reducido de 14 a 13
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            
-                            // Tiempo
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.timer_outlined,
-                                  size: 13, // Reducido de 14 a 13
-                                  color: Colors.grey.shade600,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  '${receta.tiempoPreparacion} min',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            
-                            // Dificultad
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getDifficultyColor(receta.dificultad)
-                                    .withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                receta.dificultad,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: _getDifficultyColor(receta.dificultad),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Acciones - ARREGLADO
-                    Container(
-                      height: 40, // Altura fija para los botones
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: Colors.grey.shade200),
-                        ),
-                      ),
-                      child: Row(
+        // ===== LAYOUT PRINCIPAL =====
+        return SingleChildScrollView(
+          child: Column(
+            children: [
+              // ===== RECETA DEL DÍA (INDEPENDIENTE) =====
+              FutureBuilder<RecetaModel?>(
+                future: _recetaDelDiaController.obtenerRecetaDelDia(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _controller.toggleFavorita(
-                                receta.idReceta,
-                                receta.favorita ?? false,
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  (receta.favorita ?? false)
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: (receta.favorita ?? false)
-                                      ? Colors.red
-                                      : Colors.grey,
-                                  size: 20,
-                                ),
-                              ),
+                          const Text(
+                            '⭐ Receta del Día',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF47A72F),
                             ),
                           ),
-                          Container(
-                            width: 1,
-                            color: Colors.grey.shade200,
-                          ),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Eliminar receta'),
-                                    content: Text(
-                                      '¿Estás seguro de eliminar "${receta.titulo}"?',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('Cancelar'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () async {
-                                          Navigator.pop(context);
-                                          await _controller
-                                              .eliminarRecetaUsuario(receta.idReceta);
-                                          _showSnackBar(
-                                            'Receta eliminada',
-                                            const Color(0xFF47A72F),
-                                          );
-                                        },
-                                        child: const Text(
-                                          'Eliminar',
-                                          style: TextStyle(color: Colors.redAccent),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              child: const Center(
-                                child: Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                  size: 20,
-                                ),
-                              ),
+                          const SizedBox(height: 12),
+                          const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF47A72F),
                             ),
                           ),
                         ],
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError || snapshot.data == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final recetaDelDia = snapshot.data!;
+
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '⭐ Receta del Día',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF47A72F),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildRecetaDelDiaCard(recetaDelDia),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              const Divider(height: 30, indent: 16, endIndent: 16),
+
+              // ===== RECETAS PREPARADAS (CARRUSEL) =====
+              if (recetasPreparadas.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '✅ Recetas Preparadas',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF47A72F),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 260,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recetasPreparadas.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: _buildRecetaCarrouselCard(
+                                recetasPreparadas[index],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+
+              // ===== RECETAS GUARDADAS (CARRUSEL) =====
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '📚 Mis Recetas Guardadas',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF47A72F),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 260,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: recetas.length,
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: _buildRecetaCarrouselCard(recetas[index]),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+
+              // Botón para generar nuevas recetas
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF47A72F),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: showAddRecipeDialog,
+                    icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                    label: const Text(
+                      'Generar nuevas recetas',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ===== WIDGET: RECETA DEL DÍA =====
+  Widget _buildRecetaDelDiaCard(RecetaModel receta) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: InkWell(
+        onTap: () async {
+          final despensa = await _controller.obtenerIngredientesDespensa();
+          final estados = _controller.verificarEstadoIngredientes(receta, despensa);
+          if (!mounted) return;
+          _mostrarDetalleReceta(receta, estados);
+        },
+        borderRadius: BorderRadius.circular(15),
+        child: Row(
+          children: [
+            // Imagen
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                bottomLeft: Radius.circular(15),
+              ),
+              child: Container(
+                width: 150,
+                height: 200,
+                color: Colors.grey.shade200,
+                child: receta.imagenUrl.isNotEmpty
+                    ? Image.network(
+                        receta.imagenUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.broken_image,
+                            color: Colors.grey.shade400,
+                            size: 50,
+                          );
+                        },
+                      )
+                    : Icon(
+                        _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
+                        size: 60,
+                        color: const Color(0xFF47A72F),
+                      ),
+              ),
+            ),
+            // Contenido
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      receta.titulo,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      receta.descripcion,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${receta.tiempoPreparacion} min',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getDifficultyColor(receta.dificultad)
+                                .withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            receta.dificultad,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _getDifficultyColor(receta.dificultad),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== WIDGET: RECETA EN CARRUSEL =====
+  Widget _buildRecetaCarrouselCard(RecetaModel receta) {
+    return SizedBox(
+      width: 180,
+      child: Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: () async {
+            final despensa = await _controller.obtenerIngredientesDespensa();
+            final estados = _controller.verificarEstadoIngredientes(receta, despensa);
+            if (!mounted) return;
+            _mostrarDetalleReceta(receta, estados);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Imagen
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+                child: Container(
+                  height: 110,
+                  color: Colors.grey.shade200,
+                  child: receta.imagenUrl.isNotEmpty
+                      ? Image.network(
+                          receta.imagenUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.broken_image,
+                              color: Colors.grey.shade400,
+                            );
+                          },
+                        )
+                      : Center(
+                          child: Icon(
+                            _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
+                            size: 40,
+                            color: const Color(0xFF47A72F),
+                          ),
+                        ),
+                ),
+              ),
+              // Contenido
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        receta.titulo,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.timer_outlined,
+                            size: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${receta.tiempoPreparacion}m',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Acciones
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    InkWell(
+                      onTap: () => _controller.toggleFavorita(
+                        receta.idReceta,
+                        receta.favorita ?? false,
+                      ),
+                      child: Icon(
+                        (receta.favorita ?? false)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: (receta.favorita ?? false)
+                            ? Colors.red
+                            : Colors.grey,
+                        size: 16,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _controller.togglePreparada(
+                        receta.idReceta,
+                        receta.preparada ?? false,
+                      ),
+                      child: Icon(
+                        (receta.preparada ?? false)
+                            ? Icons.check_circle
+                            : Icons.check_circle_outline,
+                        color: (receta.preparada ?? false)
+                            ? const Color(0xFF47A72F)
+                            : Colors.grey,
+                        size: 16,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Eliminar receta'),
+                            content: Text(
+                              '¿Estás seguro de eliminar "${receta.titulo}"?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Cancelar'),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  await _controller
+                                      .eliminarRecetaUsuario(receta.idReceta);
+                                  _showSnackBar(
+                                    'Receta eliminada',
+                                    const Color(0xFF47A72F),
+                                  );
+                                },
+                                child: const Text(
+                                  'Eliminar',
+                                  style: TextStyle(color: Colors.redAccent),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: const Icon(
+                        Icons.delete,
+                        color: Colors.red,
+                        size: 16,
                       ),
                     ),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

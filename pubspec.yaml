@@ -20,6 +20,7 @@ dependencies:
   google_sign_in: ^6.2.1
   google_generative_ai: ^0.4.7
   dio: ^5.9.0
+  flutter_dotenv: ^5.2.1            # Manejo de variables de entorno
   image_picker: ^1.1.2              # Para cámara y galería
   google_mlkit_text_recognition: ^0.13.1  # OCRebase ML Kit
   permission_handler: ^11.3.1       # Permisos de cámara
@@ -33,5 +34,6 @@ flutter:
   uses-material-design: true
 
   assets:
+    - .env
     - assets/onboarding/
     - assets/

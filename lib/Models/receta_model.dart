@@ -17,6 +17,7 @@ class RecetaModel {
   final List<IngredienteRecetaDetalle>? ingredientes;
   final List<String>? pasos;
   final bool? favorita;
+  final bool? preparada; // ⭐ NUEVO: Indica si fue preparada
 
   RecetaModel({
     required this.idReceta,
@@ -33,6 +34,7 @@ class RecetaModel {
     this.ingredientes,
     this.pasos,
     this.favorita,
+    this.preparada,
   });
 
   // fromJson - Para deserializar desde Firestore o JSON
@@ -60,6 +62,7 @@ class RecetaModel {
           : null,
       pasos: json['pasos'] != null ? List<String>.from(json['pasos']) : null,
       favorita: json['favorita'],
+      preparada: json['preparada'],
     );
   }
 
@@ -102,6 +105,7 @@ class RecetaModel {
         'ingredientes': ingredientes!.map((i) => i.toJson()).toList(),
       if (pasos != null) 'pasos': pasos,
       if (favorita != null) 'favorita': favorita,
+      if (preparada != null) 'preparada': preparada,
     };
   }
 
@@ -121,6 +125,7 @@ class RecetaModel {
     List<IngredienteRecetaDetalle>? ingredientes,
     List<String>? pasos,
     bool? favorita,
+    bool? preparada,
   }) {
     return RecetaModel(
       idReceta: idReceta ?? this.idReceta,
@@ -137,6 +142,7 @@ class RecetaModel {
       ingredientes: ingredientes ?? this.ingredientes,
       pasos: pasos ?? this.pasos,
       favorita: favorita ?? this.favorita,
+      preparada: preparada ?? this.preparada,
     );
   }
 
