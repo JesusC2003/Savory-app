@@ -161,32 +161,14 @@ Responde con JSON exactamente así:
 
       print('📸 Buscando imagen para receta del día: "$titulo"');
 
-      final unsplashUrl = 'https://api.unsplash.com/photos/random'
-          '?query=food+$keywords'
-          '&w=400&h=300'
-          '&fit=crop'
-          '&client_id=RlM3aTEyMVZkdUowZWRvNWZkZmJGTVcyQ0lqUEJPd3ZlZ3Z5M0htSkc5eUE';
-
-      try {
-        final response = await _dio.get(unsplashUrl);
-        if (response.statusCode == 200) {
-          final imageUrl = response.data['urls']['regular'] ?? response.data['urls']['full'] ?? '';
-          if (imageUrl.isNotEmpty) {
-            print('✓ Imagen encontrada: $imageUrl');
-            return imageUrl;
-          }
-        }
-      } catch (e) {
-        print('⚠️ Error en Unsplash: $e');
-      }
-
-      // Fallback a imagen genérica de comida
-      print('📌 Usando fallback URL');
-      return 'https://images.unsplash.com/photo-1495521821757-a1efb6729352'
-          '?w=400&h=300&fit=crop&q=80';
+      // URL de Unsplash SIN autenticación (más confiable)
+      final unsplashUrl = 'https://source.unsplash.com/400x300/?food,${keywords.replaceAll(' ', ',')}';
+      
+      print('✓ Imagen encontrada: $unsplashUrl');
+      return unsplashUrl;
     } catch (e) {
       print('❌ Error obteniendo imagen: $e');
-      return '';
+      return 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=400&h=300&fit=crop&q=80';
     }
   }
 }

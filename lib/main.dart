@@ -14,7 +14,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+  runApp(const MyApp()); // MyApp es StatefulWidget pero puede ser const en construcción
 }
 
 

@@ -84,6 +84,7 @@ class RecetaModel {
         'ingredientes': ingredientes!.map((i) => i.toJson()).toList(),
       if (pasos != null) 'pasos': pasos,
       if (favorita != null) 'favorita': favorita,
+      if (preparada != null) 'preparada': preparada,
     };
   }
 

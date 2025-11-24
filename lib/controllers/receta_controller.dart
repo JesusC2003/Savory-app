@@ -29,12 +29,20 @@ class RecetaController {
     }
 
     try {
+      print('💾 Guardando receta: ${receta.titulo}');
+      print('   - ID: ${receta.idReceta}');
+      print('   - Imagen URL: ${receta.imagenUrl}');
+      print('   - Tiene ingredientes: ${receta.ingredientes?.isNotEmpty ?? false}');
+      
       await _firestore
           .collection('usuarios')
           .doc(currentUser!.uid)
           .collection('recetas')
           .add(receta.toJson());
+      
+      print('✓ Receta guardada exitosamente');
     } catch (e) {
+      print('❌ Error al guardar: $e');
       throw Exception('Error al guardar receta: $e');
     }
   }
@@ -136,9 +144,20 @@ class RecetaController {
         .orderBy('fecha_registro', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => RecetaModel.fromJson({...doc.data(), 'id_receta': doc.id}))
+      final recetas = snapshot.docs
+          .map((doc) {
+            final data = {...doc.data(), 'id_receta': doc.id};
+            final receta = RecetaModel.fromJson(data);
+            print('📖 Receta recuperada: ${receta.titulo}');
+            print('   - ID: ${receta.idReceta}');
+            print('   - Imagen URL: ${receta.imagenUrl}');
+            print('   - Preparada: ${receta.preparada}');
+            return receta;
+          })
           .toList();
+      
+      print('📊 Total recetas: ${recetas.length}');
+      return recetas;
     });
   }
 

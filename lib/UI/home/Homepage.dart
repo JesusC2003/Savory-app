@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:proyecto_savory/UI/home/despensa_page.dart';
 import 'package:proyecto_savory/UI/home/perfil_page.dart';
 import 'package:proyecto_savory/UI/home/recetas_page.dart';
+import 'package:proyecto_savory/UI/app.dart';
 
 /// 🌿 HomePage de Savory
 /// Incluye navegación inferior, AppBar dinámico y FAB contextual.
 /// Autor: Jesús Castillo
 
 class Homepage extends StatefulWidget {
-  const Homepage({super.key});
+  final ThemeProvider? themeProvider;
+
+  const Homepage({super.key, this.themeProvider});
 
   @override
   State<Homepage> createState() => _HomepageState();
@@ -30,7 +33,7 @@ class _HomepageState extends State<Homepage> with TickerProviderStateMixin {
     _pages = [
       RecetasPage(key: _recetasKey),
       DespensaPage(key: _despensaKey),
-      const PerfilPage(),
+      PerfilPage(themeProvider: widget.themeProvider),
     ];
   }
 

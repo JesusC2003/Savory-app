@@ -41,23 +41,29 @@ class GeminiService {
       // 1. Generar recetas con Alibaba
       final recetasBase = await _generarRecetasConAlibaba(ingredientesDisponibles);
       
-      // 2. Obtener imágenes para cada receta
+      // 2. Generar imágenes para cada receta
       final recetasConImagenes = <RecetaModel>[];
       
       for (var receta in recetasBase) {
         try {
           // Obtener URL de imagen desde Unsplash directamente
           final imagenUrl = await _descargarImagenDeInternet(receta.promptImagen ?? receta.titulo);
-          print('✓ Imagen obtenida para ${receta.titulo}: $imagenUrl');
-          recetasConImagenes.add(receta.copyWith(imagenUrl: imagenUrl));
+          print('✓ Imagen obtenida para "${receta.titulo}": $imagenUrl');
+          
+          final recetaConImagen = receta.copyWith(imagenUrl: imagenUrl);
+          print('  → imagenUrl después de copyWith: ${recetaConImagen.imagenUrl}');
+          
+          recetasConImagenes.add(recetaConImagen);
         } catch (e) {
-          print('✗ Error obteniendo imagen para ${receta.titulo}: $e');
+          print('✗ Error obteniendo imagen para "${receta.titulo}": $e');
           // Si falla, usar URL placeholder
           final placeholderUrl = _generarUrlPlaceholder(receta.promptImagen ?? receta.titulo);
+          print('  → Usando placeholder: $placeholderUrl');
           recetasConImagenes.add(receta.copyWith(imagenUrl: placeholderUrl));
         }
       }
       
+      print('📊 Total recetas con imágenes: ${recetasConImagenes.length}');
       return recetasConImagenes;
     } catch (e) {
       throw ApiErrorHandler.handleError(e);
@@ -78,34 +84,15 @@ class GeminiService {
 
       print('📸 Buscando imagen para: "$prompt" -> keywords: "$keywords"');
       
-      // URL de Unsplash con parámetros mejorados
-      final unsplashUrl = 'https://api.unsplash.com/photos/random'
-          '?query=food+$keywords'
-          '&w=400&h=300'
-          '&fit=crop'
-          '&client_id=RlM3aTEyMVZkdUowZWRvNWZkZmJGTVcyQ0lqUEJPd3ZlZ3Z5M0htSkc5eUE';
-
-      try {
-        final response = await _dio.get(unsplashUrl);
-        if (response.statusCode == 200) {
-          final imageUrl = response.data['urls']['regular'] ?? response.data['urls']['full'] ?? '';
-          if (imageUrl.isNotEmpty) {
-            print('✓ Imagen encontrada: $imageUrl');
-            return imageUrl;
-          }
-        }
-      } catch (e) {
-        print('⚠️ Error en Unsplash API: $e');
-      }
+      // URL de Unsplash SIN autenticación (funciona mejor)
+      final unsplashUrl = 'https://source.unsplash.com/400x300/?food,${keywords.replaceAll(' ', ',')}';
       
-      // Fallback 1: URL de Unsplash sin autenticación
-      final fallbackUrl = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352'
-          '?w=400&h=300&fit=crop&q=80';
-      print('📌 Usando fallback URL');
-      return fallbackUrl;
+      print('✓ Imagen encontrada: $unsplashUrl');
+      return unsplashUrl;
     } catch (e) {
       print('❌ Error descargando imagen: $e');
-      throw Exception('Error descargando imagen: $e');
+      // Fallback a imagen genérica de comida
+      return 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=400&h=300&fit=crop&q=80';
     }
   }
 

@@ -1041,10 +1041,28 @@ class RecetasPageState extends State<RecetasPage> {
                       ? Image.network(
                           receta.imagenUrl,
                           fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: const Color(0xFF47A72F),
+                              ),
+                            );
+                          },
                           errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.broken_image,
-                              color: Colors.grey.shade400,
+                            print('❌ Error cargando imagen: $error');
+                            return Container(
+                              color: Colors.grey.shade300,
+                              child: Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
                             );
                           },
                         )
