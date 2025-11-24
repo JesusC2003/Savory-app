@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../Models/receta_model.dart';
-import '../config/environment.dart';
+import '../core/config/environment.dart';
 
 class GeminiService {
   late final String _geminiApiKey;
