@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:proyecto_savory/UI/home/Homepage.dart';
-import 'package:proyecto_savory/UI/auth/register_page.dart';
-import 'package:proyecto_savory/UI/auth/forgot_password_page.dart';
+import 'package:proyecto_savory/UI/features/Homepage.dart';
+import 'package:proyecto_savory/UI/features/auth/register_page.dart';
+import 'package:proyecto_savory/UI/features/auth/forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

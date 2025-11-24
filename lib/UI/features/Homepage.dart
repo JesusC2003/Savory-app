@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:proyecto_savory/UI/home/despensa_page.dart';
-import 'package:proyecto_savory/UI/home/perfil_page.dart';
-import 'package:proyecto_savory/UI/home/recetas_page.dart';
+import 'package:proyecto_savory/UI/features/despensa/despensa_page.dart';
+import 'package:proyecto_savory/UI/features/perfil_page.dart';
+import 'package:proyecto_savory/UI/features/recetas_page.dart';
 import 'package:proyecto_savory/UI/app.dart';
 
 /// 🌿 HomePage de Savory

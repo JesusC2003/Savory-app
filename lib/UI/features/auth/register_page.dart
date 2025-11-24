@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:proyecto_savory/UI/auth/login_page.dart';
-import 'package:proyecto_savory/UI/home/Homepage.dart';
+import 'package:proyecto_savory/UI/features/auth/login_page.dart';
+import 'package:proyecto_savory/UI/features/Homepage.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});

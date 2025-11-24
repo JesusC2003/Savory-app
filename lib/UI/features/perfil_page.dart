@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:proyecto_savory/UI/auth/login_page.dart';
+import 'package:proyecto_savory/UI/features/auth/login_page.dart';
 import 'package:proyecto_savory/UI/app.dart';
 
 class PerfilPage extends StatefulWidget {
