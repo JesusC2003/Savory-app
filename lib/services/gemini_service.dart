@@ -1,22 +1,27 @@
 // lib/services/gemini_service.dart
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../Models/receta_model.dart';
 
 class GeminiService {
-  static const String _geminiApiKey = 'AIzaSyAJsSNtXZt2FcCk1HzmosvrzD8Is3sDJsc';
-  static const String _alibabaApiKey = 'sk-862e7e31a4d04869abb3f3993413fed1';
+  static const String _geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const String _alibabaApiKey = String.fromEnvironment('ALIBABA_API_KEY');
   static const String _alibabaUrl = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
   
-  late final GenerativeModel _geminiModel;
   late final Dio _dio;
+  late final FirebaseStorage _storage;
 
   GeminiService() {
-    _geminiModel = GenerativeModel(
-      model: 'gemini-2.5-flash',
-      apiKey: _geminiApiKey,
-    );
+    if (_geminiApiKey.isEmpty || _alibabaApiKey.isEmpty) {
+      throw Exception(
+        'Las claves API no están configuradas. '
+        'Ejecuta con: flutter run --dart-define=GEMINI_API_KEY=TU_KEY --dart-define=ALIBABA_API_KEY=TU_KEY'
+      );
+    }
     
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 30),
@@ -26,6 +31,8 @@ class GeminiService {
         'Content-Type': 'application/json',
       },
     ));
+    
+    _storage = FirebaseStorage.instance;
   }
 
   /// Genera 3 recetas con Alibaba y sus imágenes con Gemini
@@ -41,17 +48,111 @@ class GeminiService {
       
       for (var receta in recetasBase) {
         try {
-          final imagenUrl = await _generarImagenConGemini(receta.promptImagen ?? '');
+          // Generar URL de imagen desde prompt
+          final imagenUrl = await _generarYGuardarImagenGemini(receta);
           recetasConImagenes.add(receta.copyWith(imagenUrl: imagenUrl));
         } catch (e) {
-          // Si falla la imagen, agregar receta sin imagen
-          recetasConImagenes.add(receta);
+          print('Error generando imagen: $e');
+          // Si falla la imagen, usar URL placeholder
+          final placeholderUrl = _generarUrlPlaceholder(receta.promptImagen ?? receta.titulo);
+          recetasConImagenes.add(receta.copyWith(imagenUrl: placeholderUrl));
         }
       }
       
       return recetasConImagenes;
     } catch (e) {
       throw ApiErrorHandler.handleError(e);
+    }
+  }
+
+  /// Genera imagen con Gemini y la guarda en Firebase Storage
+  Future<String> _generarYGuardarImagenGemini(RecetaModel receta) async {
+    try {
+      // Descargar imagen desde URL externa (Unsplash o similar)
+      final imageUrl = await _descargarImagenDeInternet(receta.promptImagen ?? receta.titulo);
+      
+      if (imageUrl.isEmpty) {
+        throw Exception('No se pudo generar la imagen');
+      }
+
+      // Guardar en Firebase Storage
+      final urlGuardada = await _guardarImagenEnFirebaseStorage(receta.idReceta, imageUrl);
+      
+      return urlGuardada;
+    } catch (e) {
+      // Si falla, retornar placeholder
+      return _generarUrlPlaceholder(receta.promptImagen ?? receta.titulo);
+    }
+  }
+
+  /// Descarga imagen de una URL de internet
+  Future<String> _descargarImagenDeInternet(String prompt) async {
+    try {
+      // Generar URL de Unsplash basada en el prompt
+      final keywords = prompt
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z\s]'), '')
+          .split(' ')
+          .where((word) => word.isNotEmpty)
+          .take(2)
+          .join('+');
+      
+      final unsplashUrl = 'https://api.unsplash.com/photos/random?query=food+$keywords&client_id=RlM3aTEyMVZkdUowZWRvNWZkZmJGTVcyQ0lqUEJPd3ZlZ3Z5M0htSkc5eUE';
+      
+      try {
+        final response = await _dio.get(unsplashUrl);
+        if (response.statusCode == 200) {
+          return response.data['urls']['regular'] ?? '';
+        }
+      } catch (e) {
+        print('Error obteniendo imagen de Unsplash: $e');
+      }
+      
+      // Fallback a URL genérica de comida
+      return 'https://source.unsplash.com/400x300/?food,${keywords.replaceAll(' ', ',')}';
+    } catch (e) {
+      throw Exception('Error descargando imagen: $e');
+    }
+  }
+
+  /// Guarda la imagen en Firebase Storage y retorna URL descargable
+  Future<String> _guardarImagenEnFirebaseStorage(String recetaId, String imagenUrl) async {
+    try {
+      if (recetaId.isEmpty) {
+        // Si la receta aún no tiene ID, usar un ID temporal basado en timestamp
+        recetaId = DateTime.now().millisecondsSinceEpoch.toString();
+      }
+
+      // Descargar la imagen
+      final imageBytes = await _descargarImagenComoBytes(imagenUrl);
+      
+      // Ruta en Firebase Storage
+      final storagePath = 'recetas/$recetaId/imagen_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      // Subir a Firebase Storage
+      final ref = _storage.ref().child(storagePath);
+      final uploadTask = await ref.putData(imageBytes);
+      
+      // Obtener URL descargable
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      
+      return downloadUrl;
+    } catch (e) {
+      print('Error guardando imagen en Firebase: $e');
+      throw Exception('No se pudo guardar la imagen');
+    }
+  }
+
+  /// Descarga imagen como bytes desde una URL
+  Future<Uint8List> _descargarImagenComoBytes(String url) async {
+    try {
+      final response = await _dio.get(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('Error descargando imagen: $e');
     }
   }
 
@@ -89,24 +190,6 @@ class GeminiService {
       }
     } on DioException catch (e) {
       throw ApiErrorHandler.handleDioError(e);
-    }
-  }
-
-  /// Genera imagen usando Gemini API
-  Future<String> _generarImagenConGemini(String prompt) async {
-    try {
-      final content = [Content.text('Genera una imagen de: $prompt')];
-      final response = await _geminiModel.generateContent(content);
-      
-      // Gemini devuelve URLs de imágenes generadas en el texto
-      // Aquí extraemos la URL si está presente
-      final text = response.text ?? '';
-      
-      // Por ahora retornamos un placeholder de Unsplash relacionado
-      // En producción, implementarías la lógica de generación real de imágenes
-      return _generarUrlPlaceholder(prompt);
-    } catch (e) {
-      return _generarUrlPlaceholder(prompt);
     }
   }
 
