@@ -2,8 +2,8 @@
 
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:proyecto_savory/core/config/environment.dart';
 import '../Models/receta_model.dart';
-import '../config/environment.dart';
 
 class RecetaDelDiaService {
   late final Dio _dio;
