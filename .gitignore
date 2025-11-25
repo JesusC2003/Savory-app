@@ -17,7 +17,6 @@ migrate_working_dir/
 # ---------------------------
 # 🔐 Variables de entorno (¡IMPORTANTE!)
 # ---------------------------
-.env
 .env.local
 .env.*.local
 
@@ -76,9 +75,7 @@ firebase_options.dart
 # ---------------------------
 # 🤖 IA o claves API
 # ---------------------------
-.env
 .env.*
-*.env
 apikeys.json
 secrets.json
 

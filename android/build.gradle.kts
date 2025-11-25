@@ -5,16 +5,22 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+// Configurar buildDir sin espacios problemáticos
+val buildDirPath = "C:/temp/savory-build"
+
+val newBuildDir: Directory = layout.buildDirectory
+    .dir("../../$buildDirPath")
+    .get()
+    
+rootProject.layout.buildDirectory.set(newBuildDir)
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
+    val newSubprojectBuildDir: Directory = layout.buildDirectory
+        .dir("../../$buildDirPath/${project.name}")
+        .get()
+    project.layout.buildDirectory.set(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 }
