@@ -1,5 +1,6 @@
 // lib/UI/home/recetas_page.dart
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../controllers/receta_controller.dart';
 import '../../controllers/receta_del_dia_controller.dart';
@@ -16,6 +17,36 @@ class RecetasPageState extends State<RecetasPage> {
   final RecetaController _controller = RecetaController();
   final RecetaDelDiaController _recetaDelDiaController = RecetaDelDiaController();
   bool _isGenerating = false;
+  
+  // Variables para la receta del día (sin FutureBuilder)
+  RecetaModel? _recetaDelDia;
+  bool _cargandoRecetaDelDia = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarRecetaDelDia();
+  }
+
+  Future<void> _cargarRecetaDelDia() async {
+    // Si ya está en caché, usar esa
+    if (_recetaDelDiaController.tieneRecetaCargada) {
+      setState(() {
+        _recetaDelDia = _recetaDelDiaController.recetaActual;
+        _cargandoRecetaDelDia = false;
+      });
+      return;
+    }
+
+    // Si no, cargar desde el servicio
+    final receta = await _recetaDelDiaController.obtenerRecetaDelDia();
+    if (mounted) {
+      setState(() {
+        _recetaDelDia = receta;
+        _cargandoRecetaDelDia = false;
+      });
+    }
+  }
 
   // Método público llamado desde Homepage
   void showAddRecipeDialog() {
@@ -24,14 +55,11 @@ class RecetasPageState extends State<RecetasPage> {
 
   Future<void> _showGenerateRecipesDialog() async {
     setState(() => _isGenerating = true);
-
     try {
       final ingredientes = await _controller.obtenerIngredientesDespensa();
-
       if (ingredientes.isEmpty) {
         setState(() => _isGenerating = false);
         if (!mounted) return;
-
         _showSnackBar(
           '⚠️ Debes agregar ingredientes a tu despensa primero',
           Colors.orange,
@@ -41,14 +69,11 @@ class RecetasPageState extends State<RecetasPage> {
 
       final recetasGeneradas = await _controller.generarRecetasConIA();
       setState(() => _isGenerating = false);
-
       if (!mounted) return;
-
       _mostrarDialogoRecetasGeneradas(recetasGeneradas, ingredientes);
     } catch (e) {
       setState(() => _isGenerating = false);
       if (!mounted) return;
-
       _showSnackBar('Error: ${e.toString()}', Colors.redAccent);
     }
   }
@@ -92,7 +117,6 @@ class RecetasPageState extends State<RecetasPage> {
                 ],
               ),
               const Divider(height: 30),
-
               Expanded(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -101,7 +125,6 @@ class RecetasPageState extends State<RecetasPage> {
                     final receta = recetas[index];
                     final estadosIngredientes =
                         _controller.verificarEstadoIngredientes(receta, despensa);
-
                     return _buildRecetaCard(
                       receta,
                       estadosIngredientes,
@@ -117,6 +140,100 @@ class RecetasPageState extends State<RecetasPage> {
     );
   }
 
+  // ===== HELPER: Construir imagen (soporta base64 y URL) =====
+  Widget _buildRecetaImage(String imagenUrl, {double height = 150, BorderRadius? borderRadius}) {
+    final radius = borderRadius ?? BorderRadius.circular(10);
+    
+    if (imagenUrl.isEmpty) {
+      return Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFF47A72F).withOpacity(0.1),
+          borderRadius: radius,
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.restaurant,
+            color: Color(0xFF47A72F),
+            size: 50,
+          ),
+        ),
+      );
+    }
+
+    // Si es base64
+    if (imagenUrl.startsWith('data:image')) {
+      try {
+        final base64Data = imagenUrl.split(',').last;
+        return ClipRRect(
+          borderRadius: radius,
+          child: Image.memory(
+            base64Decode(base64Data),
+            height: height,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: height,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: radius,
+                ),
+                child: const Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              );
+            },
+          ),
+        );
+      } catch (e) {
+        return Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: radius,
+          ),
+          child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey),
+          ),
+        );
+      }
+    }
+
+    // Si es URL normal
+    return ClipRRect(
+      borderRadius: radius,
+      child: Image.network(
+        imagenUrl,
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: height,
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: CircularProgressIndicator(color: Color(0xFF47A72F)),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: radius,
+            ),
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.grey),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildRecetaCard(
     RecetaModel receta,
     List<IngredienteConEstado> estadosIngredientes,
@@ -126,7 +243,6 @@ class RecetasPageState extends State<RecetasPage> {
         .where((i) => i.estado == EstadoIngrediente.disponible)
         .length;
     final total = estadosIngredientes.length;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -140,62 +256,11 @@ class RecetasPageState extends State<RecetasPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Imagen de la receta generada
-              if (receta.imagenUrl.isNotEmpty)
-                Container(
-                  height: 150,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.grey.shade200,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      receta.imagenUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                            color: const Color(0xFF47A72F),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey.shade200,
-                          child: Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              color: Colors.grey.shade400,
-                              size: 40,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  height: 150,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF47A72F).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
-                      color: const Color(0xFF47A72F),
-                      size: 50,
-                    ),
-                  ),
-                ),
+              Container(
+                height: 150,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: _buildRecetaImage(receta.imagenUrl, height: 150),
+              ),
               Row(
                 children: [
                   Container(
@@ -238,7 +303,6 @@ class RecetasPageState extends State<RecetasPage> {
                 ],
               ),
               const SizedBox(height: 12),
-
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -252,7 +316,6 @@ class RecetasPageState extends State<RecetasPage> {
                 ],
               ),
               const SizedBox(height: 12),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -297,93 +360,42 @@ class RecetasPageState extends State<RecetasPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Imagen grande si existe
-              if (receta.imagenUrl.isNotEmpty)
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                  child: Container(
-                    height: 200,
-                    color: Colors.grey.shade200,
-                    child: Stack(
-                      children: [
-                        Image.network(
-                          receta.imagenUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                                color: const Color(0xFF47A72F),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade300,
-                              child: Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  color: Colors.grey.shade500,
-                                  size: 50,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        Positioned(
-                          top: 10,
-                          right: 10,
-                          child: IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.black.withOpacity(0.5),
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF47A72F).withOpacity(0.1),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
-                    ),
-                  ),
+              // Imagen grande
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                child: SizedBox(
+                  height: 200,
+                  width: double.infinity,
                   child: Stack(
                     children: [
-                      Center(
-                        child: Icon(
-                          _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
-                          size: 80,
-                          color: const Color(0xFF47A72F),
+                      _buildRecetaImage(
+                        receta.imagenUrl,
+                        height: 200,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
                         ),
                       ),
                       Positioned(
                         top: 10,
                         right: 10,
                         child: IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black.withOpacity(0.5),
+                          ),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
                     ],
                   ),
                 ),
+              ),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
                   color: Color(0xFF47A72F),
@@ -397,7 +409,6 @@ class RecetasPageState extends State<RecetasPage> {
                   ),
                 ),
               ),
-
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -436,7 +447,6 @@ class RecetasPageState extends State<RecetasPage> {
         ...estadosIngredientes.map((item) {
           Color color;
           IconData icon;
-
           switch (item.estado) {
             case EstadoIngrediente.disponible:
               color = Colors.green;
@@ -476,7 +486,7 @@ class RecetasPageState extends State<RecetasPage> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -523,7 +533,7 @@ class RecetasPageState extends State<RecetasPage> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -574,7 +584,6 @@ class RecetasPageState extends State<RecetasPage> {
         : disponibles > total / 2
             ? Colors.orange
             : Colors.red;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -739,61 +748,49 @@ class RecetasPageState extends State<RecetasPage> {
         return SingleChildScrollView(
           child: Column(
             children: [
-              // ===== RECETA DEL DÍA (INDEPENDIENTE) =====
-              FutureBuilder<RecetaModel?>(
-                future: _recetaDelDiaController.obtenerRecetaDelDia(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '⭐ Receta del Día',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF47A72F),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF47A72F),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  if (snapshot.hasError || snapshot.data == null) {
-                    return const SizedBox.shrink();
-                  }
-
-                  final recetaDelDia = snapshot.data!;
-
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '⭐ Receta del Día',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF47A72F),
-                          ),
+              // ===== RECETA DEL DÍA (SIN FUTUREBUILDER) =====
+              if (_cargandoRecetaDelDia)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '⭐ Receta del Día',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF47A72F),
                         ),
-                        const SizedBox(height: 12),
-                        _buildRecetaDelDiaCard(recetaDelDia),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF47A72F),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_recetaDelDia != null)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '⭐ Receta del Día',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF47A72F),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildRecetaDelDiaCard(_recetaDelDia!),
+                    ],
+                  ),
+                ),
 
               const Divider(height: 30, indent: 16, endIndent: 16),
 
@@ -913,27 +910,17 @@ class RecetasPageState extends State<RecetasPage> {
                 topLeft: Radius.circular(15),
                 bottomLeft: Radius.circular(15),
               ),
-              child: Container(
+              child: SizedBox(
                 width: 150,
                 height: 200,
-                color: Colors.grey.shade200,
-                child: receta.imagenUrl.isNotEmpty
-                    ? Image.network(
-                        receta.imagenUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.broken_image,
-                            color: Colors.grey.shade400,
-                            size: 50,
-                          );
-                        },
-                      )
-                    : Icon(
-                        _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
-                        size: 60,
-                        color: const Color(0xFF47A72F),
-                      ),
+                child: _buildRecetaImage(
+                  receta.imagenUrl,
+                  height: 200,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    bottomLeft: Radius.circular(15),
+                  ),
+                ),
               ),
             ),
             // Contenido
@@ -1034,45 +1021,17 @@ class RecetasPageState extends State<RecetasPage> {
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
                 ),
-                child: Container(
+                child: SizedBox(
                   height: 110,
-                  color: Colors.grey.shade200,
-                  child: receta.imagenUrl.isNotEmpty
-                      ? Image.network(
-                          receta.imagenUrl,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                                color: const Color(0xFF47A72F),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            print('❌ Error cargando imagen: $error');
-                            return Container(
-                              color: Colors.grey.shade300,
-                              child: Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : Center(
-                          child: Icon(
-                            _getCategoryIcon(receta.categoria ?? 'Almuerzo'),
-                            size: 40,
-                            color: const Color(0xFF47A72F),
-                          ),
-                        ),
+                  width: double.infinity,
+                  child: _buildRecetaImage(
+                    receta.imagenUrl,
+                    height: 110,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
                 ),
               ),
               // Contenido
