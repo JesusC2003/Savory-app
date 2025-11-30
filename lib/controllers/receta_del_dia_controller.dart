@@ -18,9 +18,16 @@ class RecetaDelDiaController {
   Future<RecetaModel?> obtenerRecetaDelDia() async {
     final hoy = _obtenerFechaHoy();
     
+    print('🔍 RecetaDelDiaController.obtenerRecetaDelDia()');
+    print('   - Fecha hoy: $hoy');
+    print('   - Fecha en caché: $_fechaCacheada');
+    print('   - Tiene receta en caché: ${_recetaEnCache != null}');
+    print('   - Está cargando: $_estaCargando');
+    
     // Si ya está en caché del mismo día, retornar inmediatamente
     if (_recetaEnCache != null && _fechaCacheada == hoy) {
       print('📦 Retornando receta del día desde caché en memoria');
+      print('   - Título: ${_recetaEnCache!.titulo}');
       return _recetaEnCache;
     }
 
@@ -32,27 +39,36 @@ class RecetaDelDiaController {
       if (_recetaEnCache != null && _fechaCacheada == hoy) {
         return _recetaEnCache;
       }
+      print('⚠️ Aún sin receta después de esperar');
       return null;
     }
 
     try {
       _estaCargando = true;
-      print('🔄 Obteniendo receta del día...');
+      print('🔄 Llamando al servicio para obtener receta del día...');
       
       final receta = await _service.obtenerRecetaDelDia();
       
       if (receta != null) {
         _recetaEnCache = receta;
         _fechaCacheada = hoy;
-        print('✅ Receta del día cargada: ${receta.titulo}');
+        print('✅ Receta del día cargada y guardada en caché:');
+        print('   - Título: ${receta.titulo}');
+        print('   - Imagen URL: ${receta.imagenUrl.substring(0, 50)}...');
+        print('   - Ingredientes: ${receta.ingredientes?.length ?? 0}');
+        print('   - Pasos: ${receta.pasos?.length ?? 0}');
+      } else {
+        print('⚠️ El servicio retornó null');
       }
       
       return receta;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Error obteniendo receta del día: $e');
+      print('Stack trace: $stackTrace');
       return null;
     } finally {
       _estaCargando = false;
+      print('✓ _estaCargando = false');
     }
   }
 
@@ -63,6 +79,7 @@ class RecetaDelDiaController {
 
   /// Fuerza regeneración (para uso manual)
   Future<RecetaModel?> forzarRegeneracion() async {
+    print('🔄 Forzando regeneración de receta del día...');
     _recetaEnCache = null;
     _fechaCacheada = null;
     return obtenerRecetaDelDia();
