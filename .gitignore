@@ -17,6 +17,7 @@ migrate_working_dir/
 # ---------------------------
 # 🔐 Variables de entorno (¡IMPORTANTE!)
 # ---------------------------
+.env
 .env.local
 .env.*.local
 
