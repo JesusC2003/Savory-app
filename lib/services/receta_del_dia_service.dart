@@ -158,7 +158,7 @@ Responde con JSON exactamente así:
       idReceta: 'receta-del-dia-${DateTime.now().toString().split(' ')[0]}',
       titulo: jsonData['titulo'] ?? 'Receta del Día',
       descripcion: jsonData['descripcion'] ?? '',
-      imagenUrl: '', // Se llenará después con Gemini
+      imagenUrl: '',
       tiempoPreparacion: jsonData['tiempoPreparacion'] ?? 30,
       porciones: jsonData['porciones'] ?? 2,
       dificultad: jsonData['dificultad'] ?? 'Media',

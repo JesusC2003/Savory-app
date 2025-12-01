@@ -272,11 +272,11 @@ Reglas:
           idReceta: '',
           titulo: recetaJson['titulo'] ?? 'Receta sin nombre',
           descripcion: recetaJson['descripcion'] ?? 'Sin descripción',
-          promptImagen: null, // Ya no necesitamos esto
+          promptImagen: null,
           tiempoPreparacion: recetaJson['tiempoPreparacion'] ?? 30,
           porciones: recetaJson['porciones'] ?? 4,
           dificultad: _validarDificultad(recetaJson['dificultad']),
-          imagenUrl: '', // Se llenará cuando se seleccione la receta
+          imagenUrl: '',
           fechaRegistro: DateTime.now(),
           nivelAcceso: 'gratuita',
           categoria: _validarCategoria(recetaJson['categoria']),

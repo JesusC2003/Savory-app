@@ -10,7 +10,7 @@ class DespensaConstants {
   // Unidades de medida
   static const List<Map<String, String>> unidades = [
     {'value': 'unidades', 'label': 'Unidades'},
-    {'value': 'gramos', 'label': 'Gramos (g)'},
+    {'value': 'gramos', 'label': 'Gramos (gr)'},
     {'value': 'kilogramos', 'label': 'Kilogramos (kg)'},
     {'value': 'litros', 'label': 'Litros (L)'},
     {'value': 'mililitros', 'label': 'Mililitros (ml)'},
@@ -22,7 +22,7 @@ class DespensaConstants {
   static String getUnitAbbreviation(String unidad) {
     switch (unidad) {
       case 'gramos':
-        return 'g';
+        return 'gr';
       case 'kilogramos':
         return 'kg';
       case 'litros':
