@@ -1,6 +1,8 @@
 // lib/services/gemini_service.dart
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:proyecto_savory/core/config/environment.dart';
 import '../Models/receta_model.dart';
 
@@ -10,6 +12,7 @@ class GeminiService {
   late final String _alibabaUrl;
   
   late final Dio _dio;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   GeminiService() {
     _geminiApiKey = Environment.geminiApiKey;
@@ -26,120 +29,137 @@ class GeminiService {
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 60),
-      headers: {
-        'Authorization': 'Bearer $_alibabaApiKey',
-        'Content-Type': 'application/json',
-      },
     ));
   }
 
-  /// Genera 3 recetas con Alibaba y sus imágenes
+  /// Genera 3 recetas con Alibaba (SIN imágenes todavía)
   Future<List<RecetaModel>> generarRecetasConIngredientes(
     List<IngredienteDespensaSimple> ingredientesDisponibles,
   ) async {
     try {
-      // 1. Generar recetas con Alibaba
+      print('🍳 Generando 3 recetas con Alibaba...');
+      
+      // 1. Generar recetas con Alibaba (sin imágenes)
       final recetasBase = await _generarRecetasConAlibaba(ingredientesDisponibles);
       
-      // 2. Generar imágenes para cada receta
-      final recetasConImagenes = <RecetaModel>[];
-      
-      for (var receta in recetasBase) {
-        try {
-          // Obtener URL de imagen desde Unsplash directamente
-          final imagenUrl = await _descargarImagenDeInternet(receta.promptImagen ?? receta.titulo);
-          print('✓ Imagen obtenida para "${receta.titulo}": $imagenUrl');
-          
-          final recetaConImagen = receta.copyWith(imagenUrl: imagenUrl);
-          print('  → imagenUrl después de copyWith: ${recetaConImagen.imagenUrl}');
-          
-          recetasConImagenes.add(recetaConImagen);
-        } catch (e) {
-          print('✗ Error obteniendo imagen para "${receta.titulo}": $e');
-          // Si falla, usar URL placeholder
-          final placeholderUrl = _generarUrlPlaceholder(receta.promptImagen ?? receta.titulo);
-          print('  → Usando placeholder: $placeholderUrl');
-          recetasConImagenes.add(receta.copyWith(imagenUrl: placeholderUrl));
-        }
-      }
-      
-      print('📊 Total recetas con imágenes: ${recetasConImagenes.length}');
-      return recetasConImagenes;
+      print('✅ ${recetasBase.length} recetas generadas (sin imágenes)');
+      return recetasBase;
     } catch (e) {
       throw ApiErrorHandler.handleError(e);
     }
   }
 
-  /// Descarga imagen de una URL de internet
-  Future<String> _descargarImagenDeInternet(String prompt) async {
+  /// Genera imagen con Gemini y la sube a Firebase Storage
+  /// Se llama cuando el usuario SELECCIONA una receta
+  Future<String> generarYSubirImagenReceta(String tituloReceta, String idReceta) async {
     try {
-      // Limpiar y preparar keywords
-      final keywords = prompt
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
-          .split(' ')
-          .where((word) => word.isNotEmpty && word.length > 2)
-          .take(3)
-          .join('+');
-
-      print('📸 Buscando imagen para: "$prompt" -> keywords: "$keywords"');
+      print('🎨 Generando imagen con Gemini para: "$tituloReceta"');
       
-      // URL de Unsplash SIN autenticación (funciona mejor)
-      final unsplashUrl = 'https://source.unsplash.com/400x300/?food,${keywords.replaceAll(' ', ',')}';
+      // 1. Generar imagen con Gemini (devuelve base64)
+      final base64Image = await _generarImagenConGemini(tituloReceta);
       
-      print('✓ Imagen encontrada: $unsplashUrl');
-      return unsplashUrl;
+      // 2. Convertir base64 a bytes
+      final imageBytes = base64Decode(base64Image);
+      
+      // 3. Subir a Firebase Storage
+      final imageUrl = await _subirImagenAFirebase(imageBytes, idReceta);
+      
+      print('✅ Imagen generada y subida: $imageUrl');
+      return imageUrl;
     } catch (e) {
-      print('❌ Error descargando imagen: $e');
-      // Fallback a imagen genérica de comida
-      return 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=400&h=300&fit=crop&q=80';
+      print('❌ Error generando imagen: $e');
+      throw Exception('Error al generar imagen con Gemini: $e');
     }
   }
 
-  /// Descarga imagen como bytes desde una URL (no se usa actualmente)
-  /*
-  Future<Uint8List> _descargarImagenComoBytes(String url) async {
+  /// Genera imagen usando Gemini Imagen API
+  Future<String> _generarImagenConGemini(String tituloReceta) async {
     try {
-      final response = await _dio.get(
-        url,
-        options: Options(responseType: ResponseType.bytes),
+      final prompt = _crearPromptImagen(tituloReceta);
+      
+      print('📸 Prompt para Gemini: "$prompt"');
+      
+      final response = await _dio.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict',
+        queryParameters: {'key': _geminiApiKey},
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+        ),
+        data: {
+          'instances': [
+            {'prompt': prompt}
+          ],
+          'parameters': {
+            'sampleCount': 1,
+            'aspectRatio': '1:1', // Imagen cuadrada
+            'negativePrompt': 'blurry, low quality, text, watermark, logo',
+          }
+        },
       );
-      return response.data;
-    } catch (e) {
-      throw Exception('Error descargando imagen: $e');
+
+      if (response.statusCode == 200) {
+        final predictions = response.data['predictions'];
+        if (predictions != null && predictions.isNotEmpty) {
+          final base64Image = predictions[0]['bytesBase64Encoded'];
+          if (base64Image != null) {
+            print('✅ Imagen generada correctamente');
+            return base64Image;
+          }
+        }
+        throw Exception('Respuesta de Gemini no contiene imagen');
+      } else {
+        throw Exception('Error HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        throw Exception('Solicitud inválida a Gemini: ${e.response?.data}');
+      } else if (e.response?.statusCode == 403) {
+        throw Exception('API Key de Gemini inválida o sin permisos');
+      }
+      throw ApiErrorHandler.handleDioError(e);
     }
   }
 
-  /// Guarda la imagen en Firebase Storage y retorna URL descargable (no se usa actualmente)
-  Future<String> _guardarImagenEnFirebaseStorage(String recetaId, String imagenUrl) async {
+  /// Sube imagen a Firebase Storage y devuelve la URL
+  Future<String> _subirImagenAFirebase(Uint8List imageBytes, String idReceta) async {
     try {
-      if (recetaId.isEmpty) {
-        // Si la receta aún no tiene ID, usar un ID temporal basado en timestamp
-        recetaId = DateTime.now().millisecondsSinceEpoch.toString();
-      }
-
-      // Descargar la imagen
-      final imageBytes = await _descargarImagenComoBytes(imagenUrl);
+      // Crear referencia única en Storage
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'recetas/$idReceta-$timestamp.png';
+      final storageRef = _storage.ref().child(fileName);
       
-      // Ruta en Firebase Storage
-      final storagePath = 'recetas/$recetaId/imagen_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      print('📤 Subiendo imagen a Firebase Storage: $fileName');
       
-      // Subir a Firebase Storage
-      final ref = _storage.ref().child(storagePath);
-      final uploadTask = await ref.putData(imageBytes);
+      // Subir imagen
+      final uploadTask = await storageRef.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/png'),
+      );
       
-      // Obtener URL descargable
+      // Obtener URL de descarga
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       
+      print('✅ Imagen subida exitosamente');
       return downloadUrl;
     } catch (e) {
-      print('Error guardando imagen en Firebase: $e');
-      throw Exception('No se pudo guardar la imagen');
+      print('❌ Error subiendo a Firebase Storage: $e');
+      throw Exception('Error al subir imagen a Firebase: $e');
     }
   }
-  */
 
-  /// Genera recetas usando Alibaba API
+  /// Crea un prompt optimizado para generar imágenes de comida
+  String _crearPromptImagen(String tituloReceta) {
+    return 'Professional food photography of $tituloReceta, '
+           'beautifully plated on a white dish, '
+           'natural lighting, high quality, '
+           'appetizing presentation, '
+           'restaurant style, '
+           '8k resolution, '
+           'detailed texture, '
+           'vibrant colors';
+  }
+
+  /// Genera recetas usando Alibaba API (sin imágenes)
   Future<List<RecetaModel>> _generarRecetasConAlibaba(
     List<IngredienteDespensaSimple> ingredientes,
   ) async {
@@ -148,6 +168,12 @@ class GeminiService {
       
       final response = await _dio.post(
         _alibabaUrl,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $_alibabaApiKey',
+            'Content-Type': 'application/json',
+          },
+        ),
         data: {
           'model': 'qwen-turbo',
           'messages': [
@@ -176,18 +202,6 @@ class GeminiService {
     }
   }
 
-  String _generarUrlPlaceholder(String prompt) {
-    // Genera URL de Unsplash basado en palabras clave del prompt
-    final keywords = prompt
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z\s]'), '')
-        .split(' ')
-        .take(2)
-        .join(',');
-    
-    return 'https://source.unsplash.com/400x300/?food,$keywords';
-  }
-
   String _crearPromptAlibaba(List<IngredienteDespensaSimple> ingredientes) {
     final ingredientesTexto = ingredientes
         .map((i) => '${i.nombre}: ${i.cantidad} ${i.unidad}')
@@ -204,7 +218,6 @@ Formato requerido:
     {
       "titulo": "Nombre atractivo",
       "descripcion": "Descripción breve (max 100 caracteres)",
-      "promptImagen": "Descripción para generar imagen: un plato de [receta] servido profesionalmente, luz natural, fotografía gastronómica",
       "tiempoPreparacion": 30,
       "porciones": 4,
       "dificultad": "Fácil",
@@ -228,7 +241,6 @@ Reglas:
 - Mínimo 4 pasos por receta
 - Usar máximo ingredientes disponibles
 - Agregar ingredientes básicos solo si necesario (sal, pimienta, aceite, agua)
-- promptImagen: descripción visual profesional del plato terminado
 ''';
   }
 
@@ -260,11 +272,11 @@ Reglas:
           idReceta: '',
           titulo: recetaJson['titulo'] ?? 'Receta sin nombre',
           descripcion: recetaJson['descripcion'] ?? 'Sin descripción',
-          promptImagen: recetaJson['promptImagen'],
+          promptImagen: null, // Ya no necesitamos esto
           tiempoPreparacion: recetaJson['tiempoPreparacion'] ?? 30,
           porciones: recetaJson['porciones'] ?? 4,
           dificultad: _validarDificultad(recetaJson['dificultad']),
-          imagenUrl: '',
+          imagenUrl: '', // Se llenará cuando se seleccione la receta
           fechaRegistro: DateTime.now(),
           nivelAcceso: 'gratuita',
           categoria: _validarCategoria(recetaJson['categoria']),
@@ -295,28 +307,6 @@ Reglas:
     const validas = ['Desayuno', 'Almuerzo', 'Cena', 'Postre', 'Snack'];
     final cat = categoria?.toString() ?? 'Almuerzo';
     return validas.contains(cat) ? cat : 'Almuerzo';
-  }
-}
-
-// Extensión para copiar RecetaModel con cambios
-extension RecetaModelExtension on RecetaModel {
-  RecetaModel copyWith({String? imagenUrl}) {
-    return RecetaModel(
-      idReceta: this.idReceta,
-      titulo: this.titulo,
-      descripcion: this.descripcion,
-      promptImagen: this.promptImagen,
-      tiempoPreparacion: this.tiempoPreparacion,
-      porciones: this.porciones,
-      dificultad: this.dificultad,
-      imagenUrl: imagenUrl ?? this.imagenUrl,
-      fechaRegistro: this.fechaRegistro,
-      nivelAcceso: this.nivelAcceso,
-      categoria: this.categoria,
-      ingredientes: this.ingredientes,
-      pasos: this.pasos,
-      favorita: this.favorita,
-    );
   }
 }
 

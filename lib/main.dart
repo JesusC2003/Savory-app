@@ -11,6 +11,8 @@ void main() async {
   
   await Environment.load();
   
+  Environment.verificarConfiguracion();
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
