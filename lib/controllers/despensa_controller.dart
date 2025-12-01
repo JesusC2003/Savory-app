@@ -43,8 +43,9 @@ class DespensaController {
     });
   }
 
-  /// Agregar múltiples ingredientes en lote (batch)
-  Future<void> agregarIngredientesLote(List<String> ingredientes) async {
+  /// Agregar múltiples ingredientes en lote (batch) - VERSIÓN MEJORADA
+  /// Ahora acepta Map<String, String> con nombre, cantidad y unidad
+  Future<void> agregarIngredientesLote(List<Map<String, String>> ingredientes) async {
     if (currentUser == null) {
       throw Exception('Usuario no autenticado');
     }
@@ -59,12 +60,12 @@ class DespensaController {
         .doc(currentUser!.uid)
         .collection('despensa');
 
-    for (String ingrediente in ingredientes) {
+    for (Map<String, String> ingrediente in ingredientes) {
       final docRef = despensaRef.doc();
       batch.set(docRef, {
-        'nombre': ingrediente,
-        'cantidad': '1',
-        'unidad': 'unidades',
+        'nombre': ingrediente['nombre'] ?? '',
+        'cantidad': ingrediente['cantidad'] ?? '1',
+        'unidad': ingrediente['unidad'] ?? 'unidades',
         'fecha_agregado': DateTime.now().toIso8601String(),
       });
     }
@@ -111,7 +112,9 @@ class DespensaController {
 
   /// Verificar si un ingrediente ya existe
   Future<bool> ingredienteExiste(String nombre) async {
-    if (currentUser == null) return false;final query = await _firestore
+    if (currentUser == null) return false;
+
+    final query = await _firestore
         .collection('usuarios')
         .doc(currentUser!.uid)
         .collection('despensa')

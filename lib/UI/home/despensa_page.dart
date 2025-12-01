@@ -6,7 +6,6 @@ import 'package:proyecto_savory/controllers/despensa_controller.dart';
 import 'widgets/despensa_empty_state.dart';
 import 'widgets/despensa_item_card.dart';
 import 'widgets/add_ingredient_options_sheet.dart';
-import 'widgets/ingredientes_detectados_dialog.dart';
 import 'widgets/add_ingredient_manual_dialog.dart';
 import 'constants/despensa_constants.dart';
 
@@ -143,7 +142,7 @@ class DespensaPageState extends State<DespensaPage> {
   }
 
   // ==========================================
-  // MÉTODOS OCR
+  // MÉTODOS OCR - ACTUALIZADOS PARA ALIBABA
   // ==========================================
 
   Future<void> _escanearConCamara() async {
@@ -168,7 +167,7 @@ class DespensaPageState extends State<DespensaPage> {
     await _procesarOCR(() => _ocrService.escanearDesdeGaleria());
   }
 
-  Future<void> _procesarOCR(Future<List<String>> Function() ocrFunction) async {
+  Future<void> _procesarOCR(Future<List<Map<String, String>>> Function() ocrFunction) async {
     try {
       _showLoadingDialog(DespensaConstants.mensajeProcesandoImagen);
 
@@ -196,17 +195,19 @@ class DespensaPageState extends State<DespensaPage> {
     }
   }
 
-  void _mostrarDialogoIngredientesDetectados(List<String> ingredientes) {
+  void _mostrarDialogoIngredientesDetectados(List<Map<String, String>> ingredientes) {
     showDialog(
       context: context,
-      builder: (context) => IngredientesDetectadosDialog(
+      builder: (context) => IngredientesDetectadosDialogEnhanced(
         ingredientes: ingredientes,
-        onAgregarSeleccionados: _agregarIngredientesLote,
+        onAgregarSeleccionados: (seleccionados) async {
+          await _agregarIngredientesLote(seleccionados);
+        },
       ),
     );
   }
 
-  Future<void> _agregarIngredientesLote(List<String> ingredientes) async {
+  Future<void> _agregarIngredientesLote(List<Map<String, String>> ingredientes) async {
     if (ingredientes.isEmpty) return;
 
     try {
@@ -423,5 +424,128 @@ class DespensaPageState extends State<DespensaPage> {
   void dispose() {
     _ocrService.dispose();
     super.dispose();
+  }
+}
+
+// ==========================================
+// DIÁLOGO MEJORADO PARA INGREDIENTES DETECTADOS
+// ==========================================
+
+class IngredientesDetectadosDialogEnhanced extends StatefulWidget {
+  final List<Map<String, String>> ingredientes;
+  final Future<void> Function(List<Map<String, String>>) onAgregarSeleccionados;
+
+  const IngredientesDetectadosDialogEnhanced({
+    super.key,
+    required this.ingredientes,
+    required this.onAgregarSeleccionados,
+  });
+
+  @override
+  State<IngredientesDetectadosDialogEnhanced> createState() =>
+      _IngredientesDetectadosDialogEnhancedState();
+}
+
+class _IngredientesDetectadosDialogEnhancedState
+    extends State<IngredientesDetectadosDialogEnhanced> {
+  late List<bool> seleccionados;
+
+  @override
+  void initState() {
+    super.initState();
+    seleccionados = List.filled(widget.ingredientes.length, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cantidadSeleccionada = seleccionados.where((s) => s).length;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Column(
+        children: [
+          const Icon(
+            Icons.check_circle_outline,
+            color: DespensaConstants.verdeSavory,
+            size: 48,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Ingredientes detectados',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$cantidadSeleccionada de ${widget.ingredientes.length} seleccionados',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: widget.ingredientes.length,
+          itemBuilder: (context, index) {
+            final ing = widget.ingredientes[index];
+            return CheckboxListTile(
+              value: seleccionados[index],
+              onChanged: (value) {
+                setState(() {
+                  seleccionados[index] = value ?? false;
+                });
+              },
+              title: Text(
+                ing['nombre'] ?? '',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                '${ing['cantidad']} ${ing['unidad']}',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              activeColor: DespensaConstants.verdeSavory,
+              controlAffinity: ListTileControlAffinity.leading,
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: DespensaConstants.verdeSavory,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          onPressed: cantidadSeleccionada > 0
+              ? () {
+                  final ingredientesSeleccionados = <Map<String, String>>[];
+                  for (int i = 0; i < widget.ingredientes.length; i++) {
+                    if (seleccionados[i]) {
+                      ingredientesSeleccionados.add(widget.ingredientes[i]);
+                    }
+                  }
+                  Navigator.pop(context);
+                  widget.onAgregarSeleccionados(ingredientesSeleccionados);
+                }
+              : null,
+          child: Text(
+            'Agregar ($cantidadSeleccionada)',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

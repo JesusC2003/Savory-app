@@ -32,7 +32,52 @@ class _AddIngredientManualDialogState extends State<AddIngredientManualDialog> {
     super.initState();
     _nombreController = TextEditingController(text: widget.nombreInicial);
     _cantidadController = TextEditingController(text: widget.cantidadInicial ?? '1');
-    _unidadSeleccionada = widget.unidadInicial ?? 'unidades';
+    
+    // 🔥 CORRECCIÓN: Normalizar y validar la unidad inicial
+    _unidadSeleccionada = _normalizarUnidad(widget.unidadInicial ?? 'unidades');
+  }
+
+  /// Normaliza y valida que la unidad exista en la lista
+  String _normalizarUnidad(String unidad) {
+    // Obtener lista de unidades válidas
+    final unidadesValidas = DespensaConstants.unidades
+        .map((u) => u['value'] as String)
+        .toList();
+
+    // Si la unidad está en la lista, usarla
+    if (unidadesValidas.contains(unidad)) {
+      return unidad;
+    }
+
+    // Mapeo de unidades comunes que la IA puede devolver
+    final Map<String, String> mapeoUnidades = {
+      'gr': 'gr',
+      'gramos': 'gr',
+      'kilo': 'kg',
+      'kilos': 'kg',
+      'kilogramos': 'kg',
+      'litro': 'L',
+      'litros': 'L',
+      'mililitro': 'ml',
+      'mililitros': 'ml',
+      'taza': 'tazas',
+      'cuchara': 'cucharadas',
+      'cucharadita': 'cucharaditas',
+      'cucharaditas': 'cucharaditas',
+      'unidad': 'unidades',
+      'piezas': 'unidades',
+      'pieza': 'unidades',
+    };
+
+    // Buscar en el mapeo (case insensitive)
+    final unidadLower = unidad.toLowerCase().trim();
+    if (mapeoUnidades.containsKey(unidadLower)) {
+      return mapeoUnidades[unidadLower]!;
+    }
+
+    // Si no se encuentra, usar "unidades" por defecto
+    print('⚠️ Unidad no reconocida: "$unidad", usando "unidades" por defecto');
+    return 'unidades';
   }
 
   @override
